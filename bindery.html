@@ -173,6 +173,9 @@ nav.tabs{
   border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom);
 }
 nav.tabs .in{max-width:var(--w);margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+nav.tabs .in5{grid-template-columns:repeat(5,1fr)}
+nav.tabs .in5 button{font-size:.64rem}
+nav.tabs .in5 svg{width:21px;height:21px}
 nav.tabs button{height:62px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--dim);font-size:.68rem;font-weight:700}
 nav.tabs svg{width:23px;height:23px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 nav.tabs button[aria-selected="true"]{color:var(--blue)}
@@ -292,6 +295,16 @@ nav.tabs button:active{opacity:.6}
 .grow .rm{width:30px;height:30px;border-radius:9px;color:var(--dim);display:flex;align-items:center;justify-content:center}
 .grow svg{width:18px;height:18px;stroke:var(--dim);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:0 0 auto}
 
+/* 고객사 자동완성 — 칸 바로 아래에 붙습니다 */
+.acwrap{position:relative}
+.ac{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:20;background:#fff;
+  border-radius:14px;box-shadow:var(--shx);overflow:hidden;max-height:280px;overflow-y:auto}
+.ac button{display:block;width:100%;text-align:left;padding:13px 16px;font-size:.92rem;font-weight:600}
+.ac button + button{border-top:1px solid var(--line)}
+.ac button:active{background:var(--fill)}
+.ac .sub{display:block;font-size:.78rem;color:var(--mut);font-weight:500;margin-top:2px}
+.ac .hd{padding:11px 16px 7px;font-size:.75rem;font-weight:800;color:var(--dim)}
+
 .note{font-size:.8rem;color:var(--mut);line-height:1.6;font-weight:500;margin-top:10px;padding-left:2px}
 .warn{background:var(--amber-bg);color:var(--amber);border-radius:14px;padding:14px 16px;font-size:.84rem;font-weight:600;line-height:1.55;margin-bottom:14px}
 .linkbox{background:var(--fill2);border:1px solid var(--line);border-radius:var(--rs);padding:13px 14px;
@@ -403,6 +416,26 @@ nav.tabs button:active{opacity:.6}
 .paper .shotrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .paper .shotrow img{width:150px;height:150px;object-fit:cover;border:1px solid #D5D8DC;border-radius:4px;background:#F4F5F7}
 .paper .shotcap{font-size:10px;color:#777;margin-top:5px}
+/* ── 청구서 · 견적서 (흔히 쓰는 그 양식) ── */
+.paper .bt{border:1.2px solid #222;margin-bottom:10px}
+.paper .bt th,.paper .bt td{border:1px solid #555;padding:6px 7px;font-size:11px;vertical-align:middle}
+.paper .bt th{background:#F4F5F7;font-weight:700;color:#333;text-align:center;white-space:nowrap}
+.paper .bt td.l{text-align:left}
+.paper .bt td.c{text-align:center}
+.paper .bt .who{text-align:center;line-height:2.1;font-size:11.5px}
+.paper .bt .who b{font-size:13px;font-weight:700}
+.paper .bt .who .sm{font-size:10.5px;color:#555}
+.paper .bt .sum{font-weight:700;letter-spacing:.02em}
+.paper .bl{border:1.2px solid #222}
+.paper .bl th{background:#F4F5F7;border:1px solid #555;padding:6px 4px;font-size:10.5px;font-weight:700;color:#333;text-align:center;white-space:nowrap}
+.paper .bl td{border:1px solid #555;padding:6px 5px;font-size:11px;height:19px}
+.paper .bl td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.paper .bl td.c{text-align:center}
+.paper .bl tr.tot td{background:#F4F5F7;font-weight:700}
+.paper .bankline{margin-top:9px;font-size:11px;display:flex;gap:14px;flex-wrap:wrap;
+  border-top:1.2px solid #222;padding-top:8px}
+.paper .bankline b{font-weight:700}
+.paper .bankline .sp{flex:1}
 .paper .tail{margin-top:20px;font-size:10.5px;color:#555;line-height:1.7;white-space:pre-wrap}
 .paper .sign{margin-top:26px;text-align:right;font-size:11.5px;color:#333;line-height:1.9}
 .paper .sign b{font-size:13px}
@@ -510,8 +543,11 @@ nav.tabs button:active{opacity:.6}
 
     <!-- ───── 새 프로젝트 ───── -->
     <section class="page" id="p-new" hidden>
-      <h1 class="ptitle">새 프로젝트</h1>
-      <p class="psub">굵은 칸만 채우면 시작할 수 있습니다</p>
+      <h1 class="ptitle" id="newTitle">새 프로젝트</h1>
+      <p class="psub" id="newSub">굵은 칸만 채우면 시작할 수 있습니다</p>
+      <button class="btn line sm" id="fromQuote" style="width:100%;margin-bottom:14px" hidden>
+        견적서에서 불러오기
+      </button>
 
       <div class="card">
         <h3>어떤 일인가</h3>
@@ -519,25 +555,24 @@ nav.tabs button:active{opacity:.6}
           <label for="n-name">프로젝트명</label>
           <input id="n-name" class="inp" placeholder="예: 2026 회사소개 브로슈어">
         </div>
+        <div class="field acwrap">
+          <label for="n-client">고객사</label>
+          <input id="n-client" class="inp" placeholder="눌러서 최근 업체 고르기" autocomplete="off">
+          <div class="ac" id="clientAC" hidden></div>
+        </div>
         <div class="row2">
-          <div class="field">
-            <label for="n-client">고객사</label>
-            <input id="n-client" class="inp" placeholder="예: 액티바코리아">
-          </div>
           <div class="field">
             <label for="n-person">담당자</label>
             <input id="n-person" class="inp" placeholder="예: 김민수 과장">
           </div>
-        </div>
-        <div class="row2">
           <div class="field">
             <label for="n-phone">연락처</label>
             <input id="n-phone" class="inp" type="tel" placeholder="010-0000-0000">
           </div>
-          <div class="field">
-            <label for="n-code">발주번호</label>
-            <input id="n-code" class="inp" placeholder="선택">
-          </div>
+        </div>
+        <div class="field">
+          <label for="n-code">발주번호</label>
+          <input id="n-code" class="inp" placeholder="선택">
         </div>
       </div>
 
@@ -563,14 +598,18 @@ nav.tabs button:active{opacity:.6}
             <input id="n-pages" class="inp num" type="number" inputmode="numeric" min="0" placeholder="0">
           </div>
         </div>
+        <div class="field">
+          <label for="n-color">색상 · 도수</label>
+          <input id="n-color" class="inp" placeholder="예: 표지 4도 / 내지 1도">
+        </div>
         <div class="row2">
           <div class="field">
-            <label for="n-color">색상 · 도수</label>
-            <input id="n-color" class="inp" placeholder="예: 4도 양면">
+            <label for="n-paperCover">표지 용지</label>
+            <input id="n-paperCover" class="inp" placeholder="예: 아트지 250g">
           </div>
           <div class="field">
-            <label for="n-paper">용지</label>
-            <input id="n-paper" class="inp" placeholder="예: 아트지 150g">
+            <label for="n-paperInner">내지 용지</label>
+            <input id="n-paperInner" class="inp" placeholder="예: 모조지 100g">
           </div>
         </div>
         <div class="row2">
@@ -583,11 +622,17 @@ nav.tabs button:active{opacity:.6}
             <input id="n-finish" class="inp" placeholder="예: 무광코팅 · 박">
           </div>
         </div>
+        <div class="field">
+          <label>그 밖의 항목</label>
+          <div id="nOptBox"></div>
+          <button class="btn line sm" id="n-addopt" style="width:100%;margin-top:10px">+ 항목 추가</button>
+          <p class="note" style="margin-top:8px">칸 이름을 직접 적습니다. 예: 링 색상 · 귀도리 · 포장 방법</p>
+        </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="n-moneyCard">
         <h3>금액과 일정</h3>
-        <div class="row2">
+        <div class="row2" id="n-priceRow">
           <div class="field">
             <label for="n-price">단가 (원)</label>
             <input id="n-price" class="inp num" type="number" inputmode="decimal" min="0" placeholder="0">
@@ -607,7 +652,7 @@ nav.tabs button:active{opacity:.6}
             <input id="n-due" class="inp" type="date">
           </div>
         </div>
-        <div class="field">
+        <div class="field" id="n-memoField">
           <label for="n-memo">내부 메모</label>
           <textarea id="n-memo" class="inp" placeholder="고객사에게는 보이지 않습니다"></textarea>
         </div>
@@ -624,6 +669,16 @@ nav.tabs button:active{opacity:.6}
       <h1 class="ptitle">현황</h1>
       <p class="psub">오늘 어디까지 갔는지, 무엇이 급한지</p>
       <div id="boardBox"></div>
+    </section>
+
+    <!-- ───── 견적서 ───── -->
+    <section class="page" id="p-quote" hidden>
+      <div class="titlerow">
+        <h1 class="ptitle">견적서</h1>
+      </div>
+      <p class="psub" id="quoteSub">보낸 견적은 그대로 프로젝트로 옮길 수 있습니다</p>
+      <button class="btn" id="newQuote" style="margin-bottom:16px">+ 새 견적서</button>
+      <div id="quoteBox"></div>
     </section>
 
     <!-- ───── 설정 ───── -->
@@ -697,7 +752,7 @@ nav.tabs button:active{opacity:.6}
   </main>
 
   <nav class="tabs" role="tablist">
-    <div class="in">
+    <div class="in in5">
       <button id="t-list" role="tab" aria-selected="true">
         <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M7 9h10M7 13h6"/></svg>
         프로젝트
@@ -709,6 +764,10 @@ nav.tabs button:active{opacity:.6}
       <button id="t-board" role="tab" aria-selected="false">
         <svg viewBox="0 0 24 24"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>
         현황
+      </button>
+      <button id="t-quote" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg>
+        견적서
       </button>
       <button id="t-set" role="tab" aria-selected="false">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7.9 19a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H2a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 3.7 7.9a1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H8a1.6 1.6 0 0 0 1-1.5V2a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 2.7 1.1l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V8a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
@@ -750,6 +809,10 @@ nav.tabs button:active{opacity:.6}
     </div>
     <div class="paperwrap" id="paperWrap"><div class="paper" id="paper"></div></div>
     <div class="noprint" style="margin-top:14px">
+      <div class="btnrow" id="quoteActions" hidden style="margin-top:0">
+        <button class="btn ghost" id="q-edit">고치기</button>
+        <button class="btn" id="q-toproject">프로젝트로 옮기기</button>
+      </div>
       <button class="btn ghost" id="i-link">고객사에 링크로 보내기</button>
       <p class="note">PDF 는 인쇄 화면에서 <b>대상을 "PDF로 저장"</b> 으로 바꾸면 파일로 떨어집니다.
         아이폰은 인쇄 미리보기에서 두 손가락으로 벌리면 PDF 가 됩니다.</p>
@@ -848,6 +911,14 @@ nav.tabs button:active{opacity:.6}
     <p class="note">새로 만들면 <b>앞의 주소는 바로 막힙니다.</b> 링크가 새어 나갔을 때 쓰세요.</p>
   </div>
   <button class="btn ghost" id="sh-close" type="button" style="margin-top:16px">닫기</button>
+</div>
+
+<!-- ───── 견적서 고르기 ───── -->
+<div class="sheet" id="sheetQuotePick" hidden>
+  <div class="grab"></div>
+  <h3>어느 견적서를 옮길까요</h3>
+  <div class="glist" id="quotePickList"></div>
+  <button class="btn ghost" id="qp-close" type="button" style="margin-top:16px">닫기</button>
 </div>
 
 <!-- ───── 더보기 ───── -->
@@ -1095,7 +1166,9 @@ function fromRow(r){
     phone:r.client_phone||'', email:r.client_email||'',
     qty:r.qty||0, unit:r.unit||'부',
     size:r.spec_size||'', pages:r.spec_pages||null, color:r.spec_color||'',
-    paper:r.spec_paper||'', bind:r.spec_bind||'', finish:r.spec_finish||'',
+    paper:r.spec_paper||'', paperCover:r.spec_paper_cover||'', paperInner:r.spec_paper_inner||'',
+    bind:r.spec_bind||'', finish:r.spec_finish||'',
+    kind:r.kind||'project', quoteOf:r.quote_of||null,
     options:Array.isArray(r.options)?r.options:[],
     price:Number(r.unit_price||0), vat:Number(r.vat_rate??10),
     extras:Array.isArray(r.extra_items)?r.extra_items:[],
@@ -1114,7 +1187,9 @@ function toRow(p){
     client_phone:p.phone||'', client_email:p.email||'',
     qty:Math.max(0,Math.round(num(p.qty))), unit:p.unit||'부',
     spec_size:p.size||'', spec_pages:p.pages?Math.round(num(p.pages)):null, spec_color:p.color||'',
-    spec_paper:p.paper||'', spec_bind:p.bind||'', spec_finish:p.finish||'',
+    spec_paper:p.paper||'', spec_paper_cover:p.paperCover||'', spec_paper_inner:p.paperInner||'',
+    spec_bind:p.bind||'', spec_finish:p.finish||'',
+    kind:p.kind||'project', quote_of:p.quoteOf||null,
     options:p.options||[],
     unit_price:num(p.price), vat_rate:num(p.vat),
     extra_items:p.extras||[],
@@ -1164,7 +1239,7 @@ function spanOf(p){
 /* 명세서 품목 — 본품 한 줄 + 추가 품목들 */
 function linesOf(p){
   const out=[];
-  const specBits=[p.size,p.pages?p.pages+'면':'',p.color,p.paper,p.bind,p.finish]
+  const specBits=[p.size,p.pages?p.pages+'면':'',p.color,paperText(p),p.bind,p.finish]
     .filter(Boolean).join(' · ');
   out.push({name:p.name||'제작물', spec:specBits, qty:num(p.qty), unit:p.unit||'부',
             price:num(p.price), amount:Math.round(num(p.qty)*num(p.price))});
@@ -1181,13 +1256,32 @@ function calc(p){
   const vat=Math.round(supply*num(p.vat)/100);
   return {lines, supply, vat, total:supply+vat};
 }
+/* 관리자인가 —
+   금액·내부 메모·고객사 공유·명세서·청구서·견적서는 관리자만 봅니다.
+   여기서 가리는 것은 화면입니다. 데이터베이스는 여전히 회사 사람 모두에게
+   금액 칸을 내려 줍니다. 진짜로 막으려면 규칙을 손봐야 합니다(진행상황.md 참고). */
+const isAdmin = () => !!(me && me.role === 'admin');
+
+/* 용지 — 표지와 내지를 따로 적습니다.
+   예전에 한 칸에 몰아 적어 둔 것은 그대로 보여 줍니다. */
+function paperRows(p){
+  const out=[];
+  if(p.paperCover) out.push(['표지 용지', p.paperCover]);
+  if(p.paperInner) out.push(['내지 용지', p.paperInner]);
+  if(!out.length && p.paper) out.push(['용지', p.paper]);
+  return out;
+}
+function paperText(p){
+  return paperRows(p).map(([k,v])=> (k==='용지'?v:k.replace(' 용지','')+' '+v)).join(' · ');
+}
+
 function memName(id){
   const m=members.find(x=>x.id===id);
   return m?m.name:(me&&id===me.id?me.name:'');
 }
 
 /* ═════════ 바텀시트 · 화면 잠금 ═════════ */
-const SHEET_IDS=['sheetStep','sheetSpec','sheetMoney','sheetShare','sheetMore'];
+const SHEET_IDS=['sheetStep','sheetSpec','sheetMoney','sheetShare','sheetMore','sheetQuotePick'];
 function anySheetOpen(except){
   return SHEET_IDS.some(id=>id!==except && $(id) && !$(id).hidden);
 }
@@ -1275,7 +1369,12 @@ async function removePhoto(path){
 }
 
 /* ═════════ 프로젝트 목록 ═════════ */
+/* 견적서는 같은 표에 들어 있지만 프로젝트 목록에는 서지 않습니다 */
+const onlyProjects = () => prjs.filter(p=>p.kind!=='quote');
+const onlyQuotes   = () => prjs.filter(p=>p.kind==='quote');
+
 function matches(p){
+  if(p.kind==='quote') return false;
   if(filterStat && p.status!==filterStat) return false;
   if(!qs) return true;
   const hay=[p.name,p.client,p.person,p.code,p.size,p.paper,p.bind].join(' ').toLowerCase();
@@ -1291,8 +1390,9 @@ function sortForList(a,b){
   return String(b.updatedAt).localeCompare(String(a.updatedAt));
 }
 function renderChips(){
-  const counts={'':prjs.length};
-  for(const k of Object.keys(STATUS)) counts[k]=prjs.filter(p=>p.status===k).length;
+  const live=onlyProjects();
+  const counts={'':live.length};
+  for(const k of Object.keys(STATUS)) counts[k]=live.filter(p=>p.status===k).length;
   const items=[['','전체']].concat(Object.keys(STATUS).map(k=>[k,STATUS[k].ko]));
   $('statChips').innerHTML=items.map(([k,ko])=>
     '<button class="chip" data-s="'+k+'" aria-pressed="'+(filterStat===k)+'">'+
@@ -1339,7 +1439,7 @@ function prjCard(p){
 function renderList(){
   const list=prjs.filter(matches).sort(sortForList);
   const box=$('listBox');
-  if(!prjs.length){
+  if(!onlyProjects().length){
     box.innerHTML='<div class="empty"><div class="big">아직 프로젝트가 없습니다</div>'+
       '<p>아래 <b>새로 만들기</b> 에서 첫 건을 넣어 보세요.<br>'+
       '프로젝트명과 고객사만 있어도 시작됩니다.</p></div>';
@@ -1351,8 +1451,8 @@ function renderList(){
       el.addEventListener('click',()=>openDetail(el.dataset.id));
     });
   }
-  const run=prjs.filter(p=>p.status==='running').length;
-  const late=prjs.filter(p=>p.status!=='done'&&daysLeft(p.dueOn)!==null&&daysLeft(p.dueOn)<0).length;
+  const run=onlyProjects().filter(p=>p.status==='running').length;
+  const late=onlyProjects().filter(p=>p.status!=='done'&&daysLeft(p.dueOn)!==null&&daysLeft(p.dueOn)<0).length;
   $('listSub').innerHTML='진행 중 '+run+'건'+(late?' · <b style="color:var(--red)">납기 지남 '+late+'건</b>':'');
 }
 $('q').addEventListener('input',e=>{
@@ -1362,49 +1462,235 @@ $('q').addEventListener('input',e=>{
 });
 $('qClr').addEventListener('click',()=>{ $('q').value=''; qs=''; $('qClr').hidden=true; renderList() });
 
-/* ═════════ 새 프로젝트 ═════════ */
+/* ═════════ 새 프로젝트 · 견적서 ═════════
+   두 가지가 같은 폼을 씁니다. 담는 칸이 똑같아서 폼을 두 벌 두면
+   한쪽만 고치는 실수가 납니다. newMode 로 가릅니다. */
+let newMode='project';    // project | quote
+let newEditId=null;       // 고치는 중인 견적서
+
+const NEW_MAP={
+  'n-name':'name','n-client':'client','n-person':'person','n-phone':'phone','n-code':'code',
+  'n-qty':'qty','n-unit':'unit','n-size':'size','n-pages':'pages','n-color':'color',
+  'n-paperCover':'paperCover','n-paperInner':'paperInner','n-bind':'bind','n-finish':'finish',
+  'n-price':'price','n-vat':'vat','n-start':'startedOn','n-due':'dueOn','n-memo':'memo'
+};
+
+function paintNewMode(){
+  const q = newMode==='quote';
+  $('newTitle').textContent = q ? (newEditId?'견적서 고치기':'새 견적서') : '새 프로젝트';
+  $('newSub').textContent   = q ? '보낸 뒤에 그대로 프로젝트로 옮길 수 있습니다'
+                                : '굵은 칸만 채우면 시작할 수 있습니다';
+  $('n-save').textContent   = q ? (newEditId?'저장':'견적서 만들기') : '만들기';
+  $('fromQuote').hidden     = q || !isAdmin() || !onlyQuotes().length;
+}
+
 function clearNew(){
-  ['n-name','n-client','n-person','n-phone','n-code','n-qty','n-size','n-pages',
-   'n-color','n-paper','n-bind','n-finish','n-price','n-start','n-due','n-memo']
-    .forEach(id=>{ if($(id)) $(id).value='' });
+  Object.keys(NEW_MAP).forEach(id=>{ if($(id)) $(id).value='' });
   $('n-unit').value='부';
   $('n-vat').value=String(issuer&&issuer.vat_rate!=null?issuer.vat_rate:10);
   $('n-start').value=todayKey();
+  renderOpts([], 'nOptBox');
+  hideClientAC();
+  newEditId=null;
+  paintNewMode();
 }
-$('n-clear').addEventListener('click',clearNew);
-$('n-save').addEventListener('click',async ()=>{
-  const name=$('n-name').value.trim();
-  const client=$('n-client').value.trim();
-  if(!name && !client){ toast('프로젝트명이나 고객사 중 하나는 필요합니다'); $('n-name').focus(); return }
-  const p={
-    id:uid(), owner:me.id, shared:[],
-    name, code:$('n-code').value.trim(),
-    client, person:$('n-person').value.trim(), phone:$('n-phone').value.trim(), email:'',
-    qty:num($('n-qty').value), unit:$('n-unit').value.trim()||'부',
-    size:$('n-size').value.trim(), pages:num($('n-pages').value)||null,
-    color:$('n-color').value.trim(), paper:$('n-paper').value.trim(),
-    bind:$('n-bind').value.trim(), finish:$('n-finish').value.trim(),
-    options:[], price:num($('n-price').value), vat:num($('n-vat').value),
-    extras:[], status:'ready',
-    startedOn:$('n-start').value||todayKey(), dueOn:$('n-due').value||null, doneOn:null,
-    photos:[], memo:$('n-memo').value.trim(), token:null, shareOn:false
+function fillNew(src){
+  for(const [id,k] of Object.entries(NEW_MAP)){
+    if(!$(id)) continue;
+    const v=src[k];
+    $(id).value = (v==null || v==='' || v===0) ? '' : v;   // 0 은 빈 칸으로 둡니다
+  }
+  $('n-unit').value = src.unit || '부';
+  renderOpts(src.options||[], 'nOptBox');
+  hideClientAC();
+  paintNewMode();
+}
+function readNew(){
+  const o={};
+  for(const [id,k] of Object.entries(NEW_MAP)) o[k] = $(id) ? $(id).value : '';
+  return {
+    name:o.name.trim(), client:o.client.trim(), person:o.person.trim(), phone:o.phone.trim(),
+    email:'', code:o.code.trim(),
+    qty:num(o.qty), unit:(o.unit||'부').trim(),
+    size:o.size.trim(), pages:num(o.pages)||null, color:o.color.trim(),
+    paperCover:o.paperCover.trim(), paperInner:o.paperInner.trim(), paper:'',
+    bind:o.bind.trim(), finish:o.finish.trim(),
+    options:readOpts('nOptBox').filter(x=>x.label||x.value),
+    price:num(o.price), vat:num(o.vat),
+    startedOn:o.startedOn||todayKey(), dueOn:o.dueOn||null,
+    memo:o.memo.trim()
   };
-  $('n-save').disabled=true;
-  const {error}=await sb.from('projects').insert(toRow(p));
-  $('n-save').disabled=false;
-  if(error){ toast('저장하지 못했습니다: '+String(error.message).slice(0,50)); return }
-  prjs.unshift({...p,updatedAt:new Date().toISOString()});
-  clearNew(); renderChips(); renderList();
-  go('list'); toast('만들었습니다');
-  openDetail(p.id);
+}
+
+$('n-clear').addEventListener('click',clearNew);
+$('n-addopt').addEventListener('click',()=>{
+  const cur=readOpts('nOptBox'); cur.push({label:'',value:''}); renderOpts(cur,'nOptBox');
 });
+
+$('n-save').addEventListener('click',async ()=>{
+  const f=readNew();
+  if(!f.name && !f.client){ toast('프로젝트명이나 고객사 중 하나는 필요합니다'); $('n-name').focus(); return }
+
+  $('n-save').disabled=true;
+  let ok=false, id=newEditId;
+
+  if(newEditId){
+    const cur=prjs.find(x=>x.id===newEditId);
+    const row=toRow({...cur,...f}); delete row.company_id;
+    const {error}=await sb.from('projects').update(row).eq('id',newEditId);
+    if(error) toast('저장하지 못했습니다: '+String(error.message).slice(0,50));
+    else { Object.assign(cur,f); cur.updatedAt=new Date().toISOString(); ok=true }
+  }else{
+    id=uid();
+    const rec={...f, id, owner:me.id, shared:[], kind:newMode, quoteOf:null,
+               extras:[], status:'ready', doneOn:null, photos:[], token:null, shareOn:false};
+    const {error}=await sb.from('projects').insert(toRow(rec));
+    if(error) toast('저장하지 못했습니다: '+String(error.message).slice(0,50));
+    else { prjs.unshift({...rec,updatedAt:new Date().toISOString()}); ok=true }
+  }
+  $('n-save').disabled=false;
+  if(!ok) return;
+
+  const wasQuote = newMode==='quote';
+  clearNew(); renderChips(); renderList();
+  if(wasQuote){ renderQuotes(); go('quote'); toast('견적서를 저장했습니다') }
+  else { go('list'); toast('만들었습니다'); openDetail(id) }
+});
+
+/* ───────── 고객사 자동완성 ─────────
+   최근에 일한 업체 다섯 곳을 먼저 보여 주고,
+   고르면 담당자·연락처와 지난번 사양까지 그대로 채웁니다.
+   같은 곳에서 비슷한 것을 다시 시키는 일이 잦아서입니다. */
+function recentClients(q){
+  const seen=new Map();
+  const list=[...prjs].sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  for(const p of list){
+    const c=(p.client||'').trim();
+    if(c && !seen.has(c)) seen.set(c,p);
+  }
+  let out=[...seen.entries()];
+  if(q){ const k=q.toLowerCase(); out=out.filter(([c])=>c.toLowerCase().includes(k)) }
+  return out.slice(0,5);
+}
+function paintClientAC(q){
+  const list=recentClients(q);
+  const box=$('clientAC');
+  if(!list.length){ box.hidden=true; return }
+  box.innerHTML='<div class="hd">최근 진행한 업체</div>'+list.map(([c,p])=>
+    '<button data-c="'+esc(c)+'">'+esc(c)+
+      '<span class="sub">'+esc([p.person,fmtPhone(p.phone),p.bind].filter(Boolean).join(' · ')||'—')+'</span>'+
+    '</button>').join('');
+  box.hidden=false;
+  box.querySelectorAll('button').forEach(b=>{
+    // mousedown 으로 받습니다. click 을 기다리면 그 전에 blur 가 목록을 닫아 버립니다.
+    b.addEventListener('mousedown',e=>{ e.preventDefault(); useClient(b.dataset.c) });
+    b.addEventListener('touchstart',e=>{ e.preventDefault(); useClient(b.dataset.c) },{passive:false});
+  });
+}
+function hideClientAC(){ const b=$('clientAC'); if(b) b.hidden=true }
+function useClient(c){
+  const src=[...prjs].sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)))
+                     .find(p=>(p.client||'').trim()===c);
+  $('n-client').value=c;
+  if(src){
+    // 업체마다 굳어진 사양이 있습니다. 수량과 발주번호만 비워 둡니다.
+    const keep=['person','phone','size','pages','color','paperCover','paperInner','bind','finish','unit','price'];
+    for(const [id,k] of Object.entries(NEW_MAP)){
+      if(keep.includes(k) && $(id) && src[k]) $(id).value=src[k];
+    }
+    if((src.options||[]).length) renderOpts(JSON.parse(JSON.stringify(src.options)),'nOptBox');
+  }
+  hideClientAC();
+  toast(src?'지난번 사양까지 채웠습니다':'고객사를 넣었습니다');
+}
+$('n-client').addEventListener('focus',()=>paintClientAC(''));
+$('n-client').addEventListener('input',e=>paintClientAC(e.target.value.trim()));
+$('n-client').addEventListener('blur',()=>setTimeout(hideClientAC,180));
+document.addEventListener('click',e=>{
+  if(!$('clientAC') || $('clientAC').hidden) return;
+  if(!e.target.closest('.acwrap')) hideClientAC();
+});
+
+/* ═════════ 견적서 ═════════ */
+function renderQuotes(){
+  const list=onlyQuotes().sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  const box=$('quoteBox');
+  $('quoteSub').textContent = list.length
+    ? '보낸 견적은 그대로 프로젝트로 옮길 수 있습니다'
+    : '아직 만든 견적서가 없습니다';
+  if(!list.length){
+    box.innerHTML='<div class="empty"><div class="big">견적서를 만들어 보세요</div>'+
+      '<p>프로젝트와 같은 칸을 채우면 됩니다.<br>일이 들어오면 그대로 프로젝트로 옮깁니다.</p></div>';
+    return;
+  }
+  box.innerHTML='<div class="glist">'+list.map(q=>{
+    const m=calc(q);
+    return '<button class="grow" data-q="'+q.id+'">'+
+      '<span class="nm">'+esc(q.name||'(이름 없음)')+
+        '<span style="display:block;font-size:.78rem;color:var(--mut);font-weight:600;margin-top:2px">'+
+        esc(q.client||'고객사 미정')+' · '+shortDay(q.startedOn)+'</span></span>'+
+      '<span class="ct">'+money(m.total)+'</span></button>';
+  }).join('')+'</div>';
+  box.querySelectorAll('[data-q]').forEach(b=>{
+    b.addEventListener('click',()=>{ curId=b.dataset.q; openDoc('quote') });
+  });
+}
+$('newQuote').addEventListener('click',()=>{
+  newMode='quote'; clearNew(); go('new');
+});
+$('q-edit').addEventListener('click',()=>{
+  const p=curPrj(); if(!p) return;
+  newMode='quote'; newEditId=p.id; fillNew(p);
+  closeInvoice(); go('new');
+});
+$('q-toproject').addEventListener('click',async ()=>{
+  const q=curPrj(); if(!q) return;
+  if(!confirm('이 견적서를 프로젝트로 옮길까요?\n견적서는 그대로 남습니다.')) return;
+  const rec={...q, id:uid(), kind:'project', quoteOf:q.id, owner:me.id,
+             status:'ready', startedOn:todayKey(), doneOn:null,
+             photos:[], token:null, shareOn:false};
+  const {error}=await sb.from('projects').insert(toRow(rec));
+  if(error){ toast('옮기지 못했습니다: '+String(error.message).slice(0,50)); return }
+  prjs.unshift({...rec,updatedAt:new Date().toISOString()});
+  closeInvoice();
+  renderChips(); renderList(); go('list'); openDetail(rec.id);
+  toast('프로젝트로 옮겼습니다');
+});
+
+/* ───── 새 프로젝트에서 견적서 불러오기 ───── */
+$('fromQuote').addEventListener('click',()=>{
+  const list=onlyQuotes().sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
+  if(!list.length){ toast('아직 만든 견적서가 없습니다'); return }
+  $('quotePickList').innerHTML=list.map(q=>{
+    const m=calc(q);
+    return '<button class="grow" data-q="'+q.id+'">'+
+      '<span class="nm">'+esc(q.name||'(이름 없음)')+
+        '<span style="display:block;font-size:.78rem;color:var(--mut);font-weight:600;margin-top:2px">'+
+        esc(q.client||'고객사 미정')+'</span></span>'+
+      '<span class="ct">'+money(m.total)+'</span></button>';
+  }).join('');
+  $('quotePickList').querySelectorAll('[data-q]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const q=prjs.find(x=>x.id===b.dataset.q);
+      if(!q) return;
+      newMode='project'; newEditId=null;
+      fillNew(q);
+      $('n-start').value=todayKey();
+      closeSheetEl('sheetQuotePick');
+      toast('견적 내용을 옮겨 왔습니다');
+    });
+  });
+  openSheetEl('sheetQuotePick');
+});
+$('qp-close').addEventListener('click',()=>closeSheetEl('sheetQuotePick'));
 
 /* ═════════ 현황 ═════════ */
 function renderBoard(){
   const box=$('boardBox');
-  if(!prjs.length){ box.innerHTML='<div class="empty"><div class="big">아직 볼 것이 없습니다</div><p>프로젝트를 하나 만들면 여기에 모입니다.</p></div>'; return }
+  const all=onlyProjects();
+  if(!all.length){ box.innerHTML='<div class="empty"><div class="big">아직 볼 것이 없습니다</div><p>프로젝트를 하나 만들면 여기에 모입니다.</p></div>'; return }
 
-  const live=prjs.filter(p=>p.status!=='done');
+  const live=all.filter(p=>p.status!=='done');
   const late=live.filter(p=>daysLeft(p.dueOn)!==null&&daysLeft(p.dueOn)<0)
                  .sort((a,b)=>(a.dueOn||'').localeCompare(b.dueOn||''));
   const soon=live.filter(p=>{ const d=daysLeft(p.dueOn); return d!==null&&d>=0&&d<=7 })
@@ -1420,11 +1706,11 @@ function renderBoard(){
 
   let h='';
   h+='<div class="card"><h3>한눈에</h3><div class="kv">'+
-     '<dt>진행 중</dt><dd>'+prjs.filter(p=>p.status==='running').length+'건</dd>'+
-     '<dt>대기</dt><dd>'+prjs.filter(p=>p.status==='ready').length+'건</dd>'+
-     '<dt>보류</dt><dd>'+prjs.filter(p=>p.status==='hold').length+'건</dd>'+
-     '<dt>이번 달 완료</dt><dd>'+prjs.filter(p=>p.status==='done'&&String(p.doneOn||'').slice(0,7)===todayKey().slice(0,7)).length+'건</dd>'+
-     '<dt>공유 중</dt><dd>'+prjs.filter(p=>p.shareOn).length+'건</dd>'+
+     '<dt>진행 중</dt><dd>'+all.filter(p=>p.status==='running').length+'건</dd>'+
+     '<dt>대기</dt><dd>'+all.filter(p=>p.status==='ready').length+'건</dd>'+
+     '<dt>보류</dt><dd>'+all.filter(p=>p.status==='hold').length+'건</dd>'+
+     '<dt>이번 달 완료</dt><dd>'+all.filter(p=>p.status==='done'&&String(p.doneOn||'').slice(0,7)===todayKey().slice(0,7)).length+'건</dd>'+
+     (isAdmin()?'<dt>공유 중</dt><dd>'+all.filter(p=>p.shareOn).length+'건</dd>':'')+
      '</div></div>';
 
   if(late.length){
@@ -1495,6 +1781,7 @@ $('d-back').addEventListener('click',closeDetail);
 
 function renderDetail(){
   const p=curPrj(); if(!p) return;
+  $('d-share').hidden = !isAdmin();
   const pc=progressOf(p.id);
   const st=STATUS[p.status]||STATUS.ready;
   const ss=stepsOf(p.id);
@@ -1553,11 +1840,12 @@ function renderDetail(){
     ['총 제작수량', p.qty?money(p.qty)+' '+esc(p.unit):'—'],
     ['규격', p.size||'—'],
     ['면수', p.pages?money(p.pages)+'면':'—'],
-    ['색상 · 도수', p.color||'—'],
-    ['용지', p.paper||'—'],
+    ['색상 · 도수', p.color||'—']
+  ].concat(paperRows(p).length?paperRows(p):[['용지','—']])
+   .concat([
     ['제본 방식', p.bind||'—'],
     ['후가공', p.finish||'—']
-  ].concat((p.options||[]).map(o=>[o.label||'옵션', o.value||'']));
+  ]).concat((p.options||[]).map(o=>[o.label||'옵션', o.value||'']));
   h+='<div class="card"><h3>제조 상세<span class="sp"></span>'+
      '<button class="btn sm line" id="editSpec">고치기</button></h3><div class="kv">'+
      specRows.map(([k,v])=>'<dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd>').join('')+
@@ -1573,7 +1861,8 @@ function renderDetail(){
      '<div class="btnrow"><button class="btn ghost sm" id="editDates" style="flex:1">일정 고치기</button></div>'+
      '</div>';
 
-  /* ── 금액 ── */
+  /* ── 금액 — 관리자만 봅니다 ── */
+  if(isAdmin()){
   h+='<div class="card"><h3>금액<span class="sp"></span>'+
      '<button class="btn sm line" id="editMoney">고치기</button></h3>';
   h+=m.lines.map(l=>'<div class="money"><span class="k">'+esc(l.name)+
@@ -1583,6 +1872,7 @@ function renderDetail(){
   h+='<div class="money"><span class="k">부가세 ('+num(p.vat)+'%)</span><span class="v">'+money(m.vat)+'</span></div>';
   h+='<div class="money total"><span class="k">합계</span><span class="v">'+money(m.total)+'<small style="font-size:.8rem;font-weight:700;color:var(--mut)"> 원</small></span></div>';
   h+='</div>';
+  }
 
   /* ── 완성 사진 ── */
   h+='<div class="card"><h3>완성본 사진</h3><div class="shots" id="shots">'+
@@ -1592,17 +1882,24 @@ function renderDetail(){
        '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>사진</button>'+
      '</div><p class="note">명세서와 고객사 화면에 함께 나갑니다.</p></div>';
 
-  /* ── 내부 메모 ── */
-  h+='<div class="card"><h3>내부 메모</h3>'+
-     '<textarea class="inp" id="d-memo" placeholder="고객사에게는 보이지 않습니다">'+esc(p.memo)+'</textarea>'+
-     '<div class="btnrow"><button class="btn ghost sm" id="saveMemo" style="flex:1">메모 저장</button></div></div>';
+  /* ── 내부 메모 — 관리자만 봅니다 ── */
+  if(isAdmin()){
+    h+='<div class="card"><h3>내부 메모</h3>'+
+       '<textarea class="inp" id="d-memo" placeholder="고객사에게는 보이지 않습니다">'+esc(p.memo)+'</textarea>'+
+       '<div class="btnrow"><button class="btn ghost sm" id="saveMemo" style="flex:1">메모 저장</button></div></div>';
+  }
 
-  /* ── 명세서 ── */
-  h+='<div class="btnrow" style="margin-top:18px">'+
-     '<button class="btn ghost" id="goShare">고객사 공유</button>'+
-     '<button class="btn" id="goInv">거래명세서</button></div>';
-  if(pc<100){
-    h+='<p class="note" style="text-align:center">공정이 100% 가 되면 완료로 바뀌고 명세서가 완성됩니다. 지금도 미리 볼 수 있습니다.</p>';
+  /* ── 서류 · 공유 — 관리자만 ── */
+  if(isAdmin()){
+    h+='<div class="btnrow" style="margin-top:18px">'+
+       '<button class="btn ghost" id="goShare">고객사 공유</button>'+
+       '<button class="btn" id="goInv">거래명세서</button></div>';
+    h+='<div class="btnrow">'+
+       '<button class="btn line" id="goBill">청구서</button>'+
+       '<button class="btn line" id="goQuote">견적서</button></div>';
+    if(pc<100){
+      h+='<p class="note" style="text-align:center">공정이 100% 가 되면 완료로 바뀌고 명세서가 완성됩니다. 지금도 미리 볼 수 있습니다.</p>';
+    }
   }
 
   $('detailBody').innerHTML=h;
@@ -1614,15 +1911,19 @@ function renderDetail(){
     b.addEventListener('click',e=>{ e.stopPropagation(); openStep(b.dataset.edit) });
   });
   $('editSpec').addEventListener('click',openSpec);
-  $('editMoney').addEventListener('click',openMoney);
   $('editDates').addEventListener('click',editDates);
   $('addShot').addEventListener('click',addShot);
   $('detailBody').querySelectorAll('[data-rm]').forEach(b=>{
     b.addEventListener('click',()=>rmShot(b.dataset.rm));
   });
-  $('saveMemo').addEventListener('click',()=>savePrj({memo:$('d-memo').value.trim()}));
-  $('goShare').addEventListener('click',openShare);
-  $('goInv').addEventListener('click',openInvoice);
+  /* 아래는 관리자 화면에만 있습니다 */
+  const on=(id,fn)=>{ const el=$(id); if(el) el.addEventListener('click',fn) };
+  on('editMoney', openMoney);
+  on('saveMemo', ()=>savePrj({memo:$('d-memo').value.trim()}));
+  on('goShare',  openShare);
+  on('goInv',    ()=>openDoc('invoice'));
+  on('goBill',   ()=>openDoc('bill'));
+  on('goQuote',  ()=>openDoc('quote'));
 }
 $('detail').addEventListener('scroll',()=>{
   $('dbar').classList.toggle('stuck',$('detail').scrollTop>10);
@@ -1753,7 +2054,8 @@ const SPEC_FIELDS=[
   ['phone','연락처','tel'],['code','발주번호','text'],
   ['qty','총 제작수량','number'],['unit','단위','text'],
   ['size','규격','text'],['pages','면수','number'],
-  ['color','색상 · 도수','text'],['paper','용지','text'],
+  ['color','색상 · 도수','text'],
+  ['paperCover','표지 용지','text'],['paperInner','내지 용지','text'],
   ['bind','제본 방식','text'],['finish','후가공','text']
 ];
 function openSpec(){
@@ -1772,8 +2074,9 @@ function openSpec(){
   });
   openSheetEl('sheetSpec');
 }
-function renderOpts(list){
-  $('optBox').innerHTML=list.map((o,i)=>
+function renderOpts(list,box){
+  box=box||'optBox';
+  $(box).innerHTML=list.map((o,i)=>
     '<div class="row2" style="margin-bottom:8px">'+
       '<input class="inp opt-l" placeholder="항목 (예: 표지 후가공)" value="'+esc(o.label||'')+'">'+
       '<div style="display:flex;gap:8px">'+
@@ -1781,15 +2084,16 @@ function renderOpts(list){
         '<button class="btn line sm" data-rmopt="'+i+'" style="width:46px;padding:0">✕</button>'+
       '</div>'+
     '</div>').join('');
-  $('optBox').querySelectorAll('[data-rmopt]').forEach(b=>{
+  $(box).querySelectorAll('[data-rmopt]').forEach(b=>{
     b.addEventListener('click',()=>{
-      const list=readOpts(); list.splice(num(b.dataset.rmopt),1); renderOpts(list);
+      const cur=readOpts(box); cur.splice(num(b.dataset.rmopt),1); renderOpts(cur,box);
     });
   });
 }
-function readOpts(){
-  const ls=[...$('optBox').querySelectorAll('.opt-l')];
-  const vs=[...$('optBox').querySelectorAll('.opt-v')];
+function readOpts(box){
+  box=box||'optBox';
+  const ls=[...$(box).querySelectorAll('.opt-l')];
+  const vs=[...$(box).querySelectorAll('.opt-v')];
   return ls.map((el,i)=>({label:el.value.trim(),value:(vs[i]||{}).value?vs[i].value.trim():''}));
 }
 $('sp-cancel').addEventListener('click',()=>closeSheetEl('sheetSpec'));
@@ -2029,19 +2333,32 @@ function makerOf(){
     fax:(issuer&&issuer.fax)||'', bank:(issuer&&issuer.bank)||'', note:(issuer&&issuer.note)||''
   };
 }
-function openInvoice(){
+/* 서류 세 가지 — 거래명세서 · 청구서 · 견적서.
+   담는 값은 같고 종이 모양만 다릅니다. 그래서 한 장(#inv)을 돌려 씁니다. */
+let docKind='invoice';
+const DOC={
+  invoice:{ko:'거래명세서'},
+  bill:   {ko:'청구서',  title:'청 구 서', lead:'※ 아래와 같이 청구 합니다 ※', sumLabel:'총합계금액'},
+  quote:  {ko:'견적서',  title:'견 적 서', lead:'※ 아래와 같이 견적 합니다 ※', sumLabel:'견적금액'}
+};
+function openDoc(kind){
   const p=curPrj(); if(!p) return;
+  docKind = DOC[kind] ? kind : 'invoice';
   invData={maker:makerOf(), p, steps:stepsOf(p.id)};
-  $('i-link').hidden=false;
+  $('i-link').hidden = docKind!=='invoice';     // 링크로 보내는 건 명세서뿐입니다
+  // 저장해 둔 견적서를 열었을 때만 고치기·옮기기가 뜹니다
+  $('quoteActions').hidden = !(docKind==='quote' && p.kind==='quote');
   $('inv').hidden=false; $('inv').scrollTop=0; lockScroll();
   renderPaper();
 }
-function closeInvoice(){ $('inv').hidden=true; lockScroll() }
+function closeInvoice(){ $('inv').hidden=true; $('quoteActions').hidden=true; lockScroll() }
 $('i-back').addEventListener('click',closeInvoice);
 
 function renderPaper(){
   if(!invData) return;
-  $('paper').innerHTML=paperHTML(invData.maker,invData.p,invData.steps);
+  $('paper').innerHTML = docKind==='invoice'
+    ? paperHTML(invData.maker, invData.p, invData.steps)
+    : formHTML(invData.maker, invData.p, docKind);
   fitPaper();
   fillPhotos($('paper'));
 }
@@ -2137,6 +2454,85 @@ function paperHTML(mk,p,steps){
     (mk.person?' · '+esc(mk.person):'')+'</div>';
 }
 
+/* ── 청구서 · 견적서 ──
+   제본소에서 오래 쓰던 종이 양식 그대로입니다.
+   왼쪽에 날짜·받는 곳, 오른쪽에 우리 사업자 정보, 그 아래 품목표.
+   명세서와 달리 줄마다 세액을 따로 적습니다. */
+function formHTML(mk,p,kind){
+  const D=DOC[kind]||DOC.bill;
+  const m=calc(p);
+  const rate=num(p.vat);
+  const today=todayKey();
+  const d=new Date(today+'T00:00:00');
+  const dateKo=d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일';
+
+  const lines=m.lines.map((l,i)=>{
+    const vat=Math.round(l.amount*rate/100);
+    return '<tr>'+
+      '<td class="c">'+(i+1)+'</td>'+
+      '<td>'+esc(l.name)+'</td>'+
+      /* 규격은 첫 줄(본품)에만 적습니다. 박스·용달비 같은 줄은 비워 둡니다 —
+         종이 양식에서도 그렇게 씁니다. */
+      '<td class="c">'+esc(i===0 ? (p.size||'') : (l.spec||''))+'</td>'+
+      '<td class="n">'+(l.qty?money(l.qty):'')+'</td>'+
+      '<td class="n">'+(l.price?money(l.price):'')+'</td>'+
+      '<td class="n">'+money(l.amount)+'</td>'+
+      '<td class="n">'+money(vat)+'</td>'+
+      '<td class="n">'+money(l.amount+vat)+'</td>'+
+      '<td></td></tr>';
+  }).join('');
+  // 종이 양식처럼 빈 줄을 남겨 둡니다. 손으로 덧붙여 쓰는 자리입니다.
+  const blanks=Math.max(0, 8-m.lines.length);
+  const pad=Array.from({length:blanks},()=>
+    '<tr><td class="c">&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>').join('');
+  const qtySum=m.lines.reduce((a,l)=>a+num(l.qty),0);
+
+  return ''+
+  '<div class="ttl">'+esc(D.title)+'</div>'+
+  '<div class="sub">'+esc(p.name||'')+(p.code?' · 발주번호 '+esc(p.code):'')+'</div>'+
+
+  '<table class="bt"><colgroup>'+
+    '<col style="width:27%"><col style="width:13%"><col style="width:22%">'+
+    '<col style="width:10%"><col style="width:28%"></colgroup><tbody>'+
+    '<tr>'+
+      '<td class="who" rowspan="2">'+esc(dateKo)+'</td>'+
+      '<th>등록번호</th><td class="c" colspan="3">'+esc(mk.bizNo||'')+'</td></tr>'+
+    '<tr><th>상 호</th><td class="c">'+esc(mk.name||'')+'</td>'+
+      '<th>성 명</th><td class="c">'+esc(mk.ceo||'')+'</td></tr>'+
+    '<tr><td class="who"><b>'+esc(p.client||'')+'</b> 귀하</td>'+
+      '<th>사업장주소</th><td class="l" colspan="3">'+esc(mk.addr||'')+'</td></tr>'+
+    '<tr><td class="who" rowspan="2"><span class="sm">'+esc(D.lead)+'</span></td>'+
+      '<th>업 태</th><td class="c">'+esc(mk.bizType||'')+'</td>'+
+      '<th>종 목</th><td class="c">'+esc(mk.bizItem||'')+'</td></tr>'+
+    '<tr><th>'+esc(D.sumLabel)+'</th><td class="l sum" colspan="3">'+
+      esc(hanMoney(m.total))+' <span style="font-weight:600">(₩'+money(m.total)+')</span></td></tr>'+
+  '</tbody></table>'+
+
+  '<table class="bl"><colgroup>'+
+    '<col style="width:5%"><col style="width:22%"><col style="width:14%"><col style="width:9%">'+
+    '<col style="width:10%"><col style="width:12%"><col style="width:10%"><col style="width:12%">'+
+    '<col style="width:6%"></colgroup>'+
+    '<thead><tr><th>NO</th><th>품 명</th><th>규 격</th><th>수 량</th><th>단 가</th>'+
+      '<th>공급가액</th><th>세 액</th><th>합계금액</th><th>비 고</th></tr></thead>'+
+    '<tbody>'+lines+pad+
+    '<tr class="tot"><td colspan="3"></td>'+
+      '<td class="n">'+(qtySum?money(qtySum):'')+'</td><td></td>'+
+      '<td class="n">₩'+money(m.supply)+'</td>'+
+      '<td class="n">₩'+money(m.vat)+'</td>'+
+      '<td class="n">₩'+money(m.total)+'</td><td></td></tr>'+
+  '</tbody></table>'+
+
+  '<div class="bankline">'+
+    (mk.bank?'<span><b>계좌</b> '+esc(mk.bank)+'</span>':'')+
+    '<span class="sp"></span>'+
+    (mk.tel?'<span><b>TEL</b> '+esc(mk.tel)+'</span>':'')+
+    (mk.fax?'<span><b>FAX</b> '+esc(mk.fax)+'</span>':'')+
+  '</div>'+
+  (kind==='quote'
+    ? '<div class="tail">※ 이 견적은 발행일로부터 30일간 유효합니다.'+(mk.note?'\n'+esc(mk.note):'')+'</div>'
+    : (mk.note?'<div class="tail">'+esc(mk.note)+'</div>':''));
+}
+
 /* ── PDF — 브라우저 인쇄를 씁니다.
    따로 만들지 않는 이유: 한글 글꼴이 깨지지 않고, A4 여백을 브라우저가 맞춰 줍니다. */
 $('i-pdf').addEventListener('click',async ()=>{
@@ -2173,7 +2569,7 @@ $('i-xlsx').addEventListener('click',async ()=>{
     const XLSX=await loadXLSX();
     const m=calc(p), span=spanOf(p);
     const A=[];
-    A.push(['거래명세서']);
+    A.push([(DOC[docKind]||DOC.invoice).ko]);
     A.push([p.name||'', '', '', '', p.code?'발주번호 '+p.code:'']);
     A.push([]);
     A.push(['공급자','','','공급받는자','']);
@@ -2214,9 +2610,9 @@ $('i-xlsx').addEventListener('click',async ()=>{
       }
     }
     const wb=XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb,ws,'거래명세서');
+    XLSX.utils.book_append_sheet(wb,ws,(DOC[docKind]||DOC.invoice).ko);
     const stamp=(p.doneOn||todayKey()).replace(/-/g,'');
-    const fname=['거래명세서',(p.client||'').replace(/[\\/:*?"<>|]/g,''),
+    const fname=[(DOC[docKind]||DOC.invoice).ko,(p.client||'').replace(/[\\/:*?"<>|]/g,''),
                  (p.name||'').replace(/[\\/:*?"<>|]/g,''),stamp].filter(Boolean).join('_')+'.xlsx';
     XLSX.writeFile(wb,fname);
     toast('엑셀로 내려받았습니다');
@@ -2258,16 +2654,36 @@ $('c-save').addEventListener('click',async ()=>{
 $('s-out').addEventListener('click',()=>{ if(confirm('로그아웃할까요?')) signOut() });
 
 /* ═════════ 탭 이동 ═════════ */
+const TABS=['list','new','board','quote','set'];
 function go(p){
-  ['list','new','board','set'].forEach(k=>{
+  TABS.forEach(k=>{
     $('p-'+k).hidden = k!==p;
     $('t-'+k).setAttribute('aria-selected',String(k===p));
   });
   if(p==='board') renderBoard();
+  if(p==='quote') renderQuotes();
+  if(p==='new')   paintNewMode();
   if(p==='set'){ paintMe(); paintIssuer() }
   window.scrollTo(0,0);
 }
-['list','new','board','set'].forEach(k=>$('t-'+k).addEventListener('click',()=>go(k)));
+TABS.forEach(k=>$('t-'+k).addEventListener('click',()=>{
+  // 아래 탭으로 들어오는 '새로 만들기'는 늘 프로젝트입니다.
+  // 견적서를 고치던 중이었다면 그 상태를 털어 냅니다.
+  if(k==='new' && newMode!=='project'){ newMode='project'; clearNew() }
+  go(k);
+}));
+
+/* 관리자와 직원이 보는 것이 다릅니다.
+   여기서 가리는 것은 화면입니다. 데이터베이스는 회사 사람 모두에게
+   금액 칸을 내려 줍니다 — 진짜로 막으려면 규칙을 손봐야 합니다. */
+function paintPerms(){
+  const a=isAdmin();
+  $('t-quote').hidden=!a;
+  const bar=document.querySelector('nav.tabs .in');
+  if(bar) bar.className = a ? 'in in5' : 'in';
+  if($('n-priceRow'))  $('n-priceRow').hidden  = !a;
+  if($('n-memoField')) $('n-memoField').hidden = !a;
+}
 window.addEventListener('scroll',()=>{ $('appbar').classList.toggle('stuck',window.scrollY>4) },{passive:true});
 
 /* ═════════ 로그인 화면 ═════════ */
@@ -2301,8 +2717,8 @@ async function afterLogin(){
   const r=await pull();
   await pullIssuer();
   if(!r.ok) toast('불러오지 못했습니다: '+String(r.msg||'').slice(0,50));
-  clearNew();
-  renderChips(); renderList(); paintIssuer();
+  paintPerms(); clearNew();
+  renderChips(); renderList(); renderQuotes(); paintIssuer();
   go('list');
   startRefresh();
 }
@@ -2462,7 +2878,9 @@ function renderPublic(d){
   $('pubBody').innerHTML=h;
   const b=$('pubInv');
   if(b) b.addEventListener('click',()=>{
+    docKind='invoice';
     $('i-link').hidden=true;
+    if($('quoteActions')) $('quoteActions').hidden=true;
     $('inv').hidden=false; $('inv').scrollTop=0; lockScroll();
     renderPaper();
   });
