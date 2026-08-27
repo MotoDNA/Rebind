@@ -49,8 +49,9 @@ Deno.serve(async (req) => {
   const { data: p } = await admin
     .from('projects')
     .select('id, company_id, owner_id, name, code, client_company, client_person, client_phone, ' +
-            'qty, unit, spec_size, spec_pages, spec_color, spec_paper, spec_bind, spec_finish, ' +
-            'options, unit_price, vat_rate, extra_items, status, started_on, due_on, done_on, ' +
+            'qty, unit, spec_size, spec_pages, spec_color, spec_paper, ' +
+            'spec_paper_cover, spec_paper_inner, spec_bind, spec_finish, ' +
+            'options, status, started_on, due_on, done_on, ' +
             'photos, share_on, deleted, updated_at')
     .eq('share_token', token)
     .maybeSingle();
@@ -58,7 +59,10 @@ Deno.serve(async (req) => {
   // 없는 토큰과 꺼 둔 링크를 같은 말로 돌려줍니다. 있는지 없는지도 알려 주지 않습니다.
   if (!p || p.deleted || !p.share_on) return json({ ok: false, error: '없는 주소입니다.' }, 404);
 
-  const [{ data: steps }, { data: co }, { data: cs }, { data: owner }] = await Promise.all([
+  // 금액은 project_money 로 옮겼습니다 (관리자만 읽는 표).
+  // 이 함수는 service_role 이라 읽을 수 있고, 고객사에게 나가는 것은
+  // 자기 프로젝트의 단가·부가세·추가품목뿐입니다. 정산일과 내부메모는 빼고 고릅니다.
+  const [{ data: steps }, { data: co }, { data: cs }, { data: owner }, { data: mn }] = await Promise.all([
     admin.from('project_steps')
       .select('id, name, percent, at, note, photo_path, created_at')
       .eq('project_id', p.id).eq('deleted', false)
@@ -67,6 +71,8 @@ Deno.serve(async (req) => {
     admin.from('company_settings').select('biz_no, ceo, addr, biz_type, biz_item, tel, fax, bank, note')
       .eq('company_id', p.company_id).maybeSingle(),
     admin.from('profiles').select('name').eq('id', p.owner_id).maybeSingle(),
+    admin.from('project_money').select('unit_price, vat_rate, extra_items')
+      .eq('project_id', p.id).maybeSingle(),
   ]);
 
   // 사진 주소는 한시적으로 만들어 줍니다. 보관함 자체는 계속 잠겨 있습니다.
@@ -99,10 +105,12 @@ Deno.serve(async (req) => {
       clientPhone: p.client_phone,
       qty: p.qty, unit: p.unit,
       specSize: p.spec_size, specPages: p.spec_pages, specColor: p.spec_color,
-      specPaper: p.spec_paper, specBind: p.spec_bind, specFinish: p.spec_finish,
+      specPaper: p.spec_paper,
+      specPaperCover: p.spec_paper_cover ?? '', specPaperInner: p.spec_paper_inner ?? '',
+      specBind: p.spec_bind, specFinish: p.spec_finish,
       options: p.options ?? [],
-      unitPrice: Number(p.unit_price ?? 0), vatRate: Number(p.vat_rate ?? 10),
-      extraItems: p.extra_items ?? [],
+      unitPrice: Number(mn?.unit_price ?? 0), vatRate: Number(mn?.vat_rate ?? 10),
+      extraItems: mn?.extra_items ?? [],
       status: p.status, startedOn: p.started_on, dueOn: p.due_on, doneOn: p.done_on,
       photos, updatedAt: p.updated_at,
     },
