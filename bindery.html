@@ -2073,9 +2073,12 @@ function applyOrder(o,uncertain){
     const el=$(id); if(!el) continue;
     el.classList.remove('check');
     const v=o[k];
-    if(v===undefined || v===null || v==='' || v===0) continue;
-    el.value=v; filled++;
+    const 빔 = (v===undefined || v===null || v==='' || v===0);
+    // 애매한 칸은 서버가 아예 비워 보냅니다. 그러니 비었을 때야말로 표시가 필요합니다 —
+    // 반쯤 맞는 값이 들어가 있으면 그냥 넘기지만, 노란 빈칸은 반드시 보게 됩니다.
     if(uncertain.includes(k)) el.classList.add('check');
+    if(빔) continue;
+    el.value=v; filled++;
   }
   if((o.options||[]).length){
     const cur=readOpts('nOptBox').filter(x=>x.label||x.value);
@@ -2091,8 +2094,8 @@ function applyOrder(o,uncertain){
   const div=document.createElement('div');
   div.id='readNote'; div.className='readnote';
   div.innerHTML='<b>'+filled+'칸을 채웠습니다.</b> 저장하기 전에 눈으로 한 번 봐 주세요.'+
-    (bad.length?'<br>특히 <b>'+bad.map(k=>esc(koOf[k]||k)).join(' · ')+
-      '</b> 은(는) 확실하지 않습니다 (노란 칸).':'')+
+    (bad.length?'<br><b>'+bad.map(k=>esc(koOf[k]||k)).join(' · ')+
+      '</b> — 확실하지 않아 <b>비워 두었습니다</b>. 노란 칸을 직접 채워 주세요.':'')+
     '<br>단가는 의뢰서에 없어 직접 넣으셔야 합니다.';
   $('newTools').after(div);
   $('n-name').scrollIntoView({block:'center',behavior:'smooth'});
