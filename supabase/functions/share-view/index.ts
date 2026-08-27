@@ -48,7 +48,7 @@ Deno.serve(async (req) => {
 
   const { data: p } = await admin
     .from('projects')
-    .select('id, company_id, owner_id, name, code, client_company, client_person, ' +
+    .select('id, company_id, owner_id, name, code, client_company, client_person, client_phone, ' +
             'qty, unit, spec_size, spec_pages, spec_color, spec_paper, spec_bind, spec_finish, ' +
             'options, unit_price, vat_rate, extra_items, status, started_on, due_on, done_on, ' +
             'photos, share_on, deleted, updated_at')
@@ -96,6 +96,7 @@ Deno.serve(async (req) => {
     project: {
       name: p.name, code: p.code,
       clientCompany: p.client_company, clientPerson: p.client_person,
+      clientPhone: p.client_phone,
       qty: p.qty, unit: p.unit,
       specSize: p.spec_size, specPages: p.spec_pages, specColor: p.spec_color,
       specPaper: p.spec_paper, specBind: p.spec_bind, specFinish: p.spec_finish,

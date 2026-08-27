@@ -361,7 +361,12 @@ nav.tabs button:active{opacity:.6}
 }
 .paper .ttl{text-align:center;font-size:27px;font-weight:800;letter-spacing:.32em;margin:0 0 4px;padding-left:.32em}
 .paper .sub{text-align:center;font-size:11px;color:#666;margin:0 0 22px}
-.paper table{width:100%;border-collapse:collapse}
+/* 표 폭을 못 박습니다.
+   자동 폭으로 두면 긴 글이 든 칸이 제 몫보다 넓게 벌어지고,
+   그만큼 표 전체가 종이보다 넓어져 오른쪽 칸이 잘려 나갑니다.
+   화면(794px)에서는 여유가 있어 안 보이다가 인쇄(A4 190mm ≈ 718px)에서 드러납니다. */
+.paper table{width:100%;border-collapse:collapse;table-layout:fixed}
+.paper th,.paper td{overflow-wrap:anywhere;word-break:break-word}
 .paper .parties{table-layout:fixed;margin-bottom:16px}
 .paper .parties>tbody>tr>td{vertical-align:top;width:50%;padding:0}
 .paper .parties>tbody>tr>td:first-child{padding-right:9px}
@@ -386,6 +391,7 @@ nav.tabs button:active{opacity:.6}
   font-weight:700;color:#555;text-align:left;white-space:nowrap;width:74px}
 .paper .spec td{border:1px solid #D5D8DC;padding:5px 8px;font-size:11px}
 .paper h4{font-size:12px;font-weight:800;margin:16px 0 7px;padding-bottom:4px;border-bottom:1.5px solid #333}
+.paper .steps{table-layout:fixed}
 .paper .steps td{border-bottom:1px solid #E5E8EB;padding:4px 6px;font-size:11px}
 .paper .steps td.d{white-space:nowrap;color:#666;width:82px}
 .paper .steps td.p{text-align:right;white-space:nowrap;font-weight:700;width:44px;font-variant-numeric:tabular-nums}
@@ -2263,7 +2269,7 @@ function onVis(){ if(!document.hidden) refreshNow() }
 function fromPublic(res){
   const q=res.project;
   const p={ id:'pub', name:q.name, code:q.code, client:q.clientCompany, person:q.clientPerson,
-    phone:'', qty:q.qty, unit:q.unit, size:q.specSize, pages:q.specPages, color:q.specColor,
+    phone:q.clientPhone||'', qty:q.qty, unit:q.unit, size:q.specSize, pages:q.specPages, color:q.specColor,
     paper:q.specPaper, bind:q.specBind, finish:q.specFinish, options:q.options||[],
     price:q.unitPrice, vat:q.vatRate, extras:q.extraItems||[], status:q.status,
     startedOn:q.startedOn, dueOn:q.dueOn, doneOn:q.doneOn, photos:q.photos||[], memo:'' };
