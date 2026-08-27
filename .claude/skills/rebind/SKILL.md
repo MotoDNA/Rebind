@@ -34,7 +34,10 @@ Re:Call 은 건드리지 않습니다. 로고도 서로 다릅니다.
 
 ```
 Project ref  izrtclsqhsgkuwsffifn
-회사코드     ACTIVA / 아이디 admin
+회사코드     BKT / 아이디 admin      ← 제본소 것. 처음에는 비어 있습니다
+회사코드     ACTIVA / 아이디 admin   ← 시연 자료 16건이 여기 있습니다
+
+회사가 다르면 서로의 자료가 안 보입니다. 데이터베이스가 회사로 가릅니다.
 ```
 
 `supabase` CLI 가 이미 link 되어 있습니다. **SQL 을 직접 돌릴 수 있습니다.**
