@@ -49,6 +49,7 @@ textarea{resize:none}
 /* ───── 레이아웃 ───── */
 .app{max-width:var(--w);margin:0 auto;min-height:100%;background:var(--bg);position:relative}
 main{padding:0 20px calc(var(--nav) + 28px)}
+body.picking main{padding-bottom:calc(var(--nav) + 96px)}
 .page{animation:fade .18s ease}
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
@@ -161,6 +162,24 @@ textarea.inp{padding:14px;height:auto;min-height:88px;line-height:1.55}
 .badge.hold{background:var(--amber-bg);color:var(--amber)}
 .badge.late{background:var(--red-bg);color:var(--red)}
 .badge.share{background:var(--violet-bg);color:var(--violet)}
+
+/* 여러 건 골라 한 장으로 청구하기 */
+.prj .pick{flex:0 0 auto;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);
+  display:flex;align-items:center;justify-content:center;margin-top:2px}
+.prj .pick svg{width:14px;height:14px;stroke:#fff;fill:none;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;opacity:0}
+.prj.sel{box-shadow:0 0 0 2px var(--blue),var(--sh)}
+.prj.sel .pick{background:var(--blue);border-color:var(--blue)}
+.prj.sel .pick svg{opacity:1}
+.selbar{
+  position:fixed;left:0;right:0;bottom:var(--nav);z-index:41;
+  background:rgba(255,255,255,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-top:1px solid var(--line);
+}
+.selbar .in{max-width:var(--w);margin:0 auto;padding:11px 20px 13px;display:flex;align-items:center;gap:10px}
+.selbar .m{flex:1;min-width:0}
+.selbar .n{font-size:.86rem;font-weight:800}
+.selbar .s{font-size:.78rem;color:var(--mut);font-weight:600;margin-top:1px}
+.selbar .btn{width:auto;height:44px;padding:0 18px;font-size:.9rem;border-radius:12px}
 
 .empty{text-align:center;padding:60px 20px;color:var(--mut)}
 .empty .big{font-size:1.05rem;font-weight:700;color:var(--sub);margin-bottom:6px}
@@ -530,6 +549,7 @@ nav.tabs button:active{opacity:.6}
     <section class="page" id="p-list">
       <div class="titlerow">
         <h1 class="ptitle">프로젝트</h1>
+        <button class="btn sm line" id="selToggle" hidden>묶어서 청구</button>
       </div>
       <p class="psub" id="listSub">—</p>
       <div class="search">
@@ -750,6 +770,17 @@ nav.tabs button:active{opacity:.6}
       </div>
     </section>
   </main>
+
+  <div class="selbar" id="selBar" hidden>
+    <div class="in">
+      <button class="btn sm ghost" id="selAll" style="width:auto;padding:0 13px;height:40px">전체</button>
+      <div class="m">
+        <div class="n" id="selCount">0건</div>
+        <div class="s" id="selSum">—</div>
+      </div>
+      <button class="btn" id="selBill">청구서</button>
+    </div>
+  </div>
 
   <nav class="tabs" role="tablist">
     <div class="in in5">
@@ -1418,8 +1449,9 @@ function prjCard(p){
     due='납기 '+shortDay(p.dueOn);
   }
   const cls=p.status==='done'?'done':(p.status==='hold'?'hold':'');
-  return '<button class="prj '+cls+'" data-id="'+p.id+'">'+
+  return '<button class="prj '+cls+(selIds.has(p.id)?' sel':'')+'" data-id="'+p.id+'">'+
     '<div class="top">'+
+      (selMode?'<span class="pick"><svg viewBox="0 0 24 24"><path d="M5 13l4 4L19 7"/></svg></span>':'')+
       '<div style="flex:1;min-width:0">'+
         '<div class="nm">'+esc(p.name||'(이름 없음)')+'</div>'+
         '<div class="cl">'+esc([p.client,p.person].filter(Boolean).join(' · ')||'고객사 미정')+'</div>'+
@@ -1447,14 +1479,88 @@ function renderList(){
     box.innerHTML='<div class="empty"><div class="big">찾는 것이 없습니다</div><p>검색어나 상태를 바꿔 보세요.</p></div>';
   }else{
     box.innerHTML=list.map(prjCard).join('');
-    box.querySelectorAll('.prj').forEach(el=>{
-      el.addEventListener('click',()=>openDetail(el.dataset.id));
-    });
+    box.querySelectorAll('.prj').forEach(el=>bindCard(el));
   }
   const run=onlyProjects().filter(p=>p.status==='running').length;
   const late=onlyProjects().filter(p=>p.status!=='done'&&daysLeft(p.dueOn)!==null&&daysLeft(p.dueOn)<0).length;
+  if(selMode) paintSel();
   $('listSub').innerHTML='진행 중 '+run+'건'+(late?' · <b style="color:var(--red)">납기 지남 '+late+'건</b>':'');
 }
+/* ═════════ 여러 건 묶어서 청구 ═════════
+   월말에 한 거래처에 몰아 청구하는 자리입니다.
+   검색으로 거래처를 걸러 놓고 고르면 편합니다.
+   카드를 길게 눌러도 고르기가 켜집니다. */
+let selMode=false;
+const selIds=new Set();
+
+function bindCard(el){
+  let timer=null, long=false, x0=0, y0=0;
+  const cancel=()=>{ clearTimeout(timer); timer=null };
+  el.addEventListener('pointerdown',e=>{
+    long=false; x0=e.clientX; y0=e.clientY;
+    if(!isAdmin()) return;
+    cancel();
+    timer=setTimeout(()=>{ long=true; if(!selMode) setSelMode(true); toggleSel(el.dataset.id) },550);
+  });
+  el.addEventListener('pointermove',e=>{
+    if(timer && (Math.abs(e.clientX-x0)>10 || Math.abs(e.clientY-y0)>10)) cancel();
+  });
+  ['pointerup','pointerleave','pointercancel'].forEach(k=>el.addEventListener(k,cancel));
+  el.addEventListener('click',e=>{
+    if(long){ long=false; e.preventDefault(); return }
+    if(selMode) toggleSel(el.dataset.id);
+    else openDetail(el.dataset.id);
+  });
+}
+function setSelMode(on){
+  selMode=!!on;
+  if(!selMode) selIds.clear();
+  $('selToggle').textContent = selMode ? '그만두기' : '묶어서 청구';
+  $('selBar').hidden = !selMode;
+  document.body.classList.toggle('picking', selMode);
+  renderList(); paintSel();
+}
+function toggleSel(id){
+  if(selIds.has(id)) selIds.delete(id); else selIds.add(id);
+  renderList(); paintSel();
+}
+function paintSel(){
+  if(!selMode) return;
+  const list=[...selIds].map(id=>prjs.find(p=>p.id===id)).filter(Boolean);
+  const sum=list.reduce((a,p)=>a+calc(p).total,0);
+  const clients=[...new Set(list.map(p=>(p.client||'').trim()).filter(Boolean))];
+  $('selCount').textContent = list.length ? list.length+'건 · ₩'+money(sum) : '고른 것 없음';
+  $('selSum').textContent = !list.length ? '카드를 눌러 고르세요'
+    : clients.length>1 ? '거래처가 '+clients.length+'곳 섞여 있습니다'
+    : (clients[0]||'거래처 미정')+' · '+periodLabel(list);
+  $('selBill').disabled = !list.length;
+}
+$('selToggle').addEventListener('click',()=>setSelMode(!selMode));
+$('selAll').addEventListener('click',()=>{
+  const shown=prjs.filter(matches);
+  const all=shown.every(p=>selIds.has(p.id));
+  shown.forEach(p=> all ? selIds.delete(p.id) : selIds.add(p.id));
+  renderList(); paintSel();
+});
+$('selBill').addEventListener('click',()=>{
+  const list=[...selIds].map(id=>prjs.find(p=>p.id===id)).filter(Boolean);
+  if(!list.length) return;
+  const clients=[...new Set(list.map(p=>(p.client||'').trim()).filter(Boolean))];
+  if(clients.length>1){
+    toast('거래처가 섞여 있습니다 — '+clients.join(', ')+'. 한 곳씩 묶어 주세요');
+    return;
+  }
+  // 날짜순으로 세웁니다. 청구서에 날짜별로 적히니까요.
+  const dt=p=>String(p.doneOn||p.dueOn||p.startedOn||'');
+  list.sort((a,b)=>dt(a).localeCompare(dt(b)));
+  curId=list[0].id;
+  docKind='bill';
+  invData={maker:makerOf(), p:list[0], steps:[], list};
+  $('i-link').hidden=true; $('quoteActions').hidden=true;
+  $('inv').hidden=false; $('inv').scrollTop=0; lockScroll();
+  renderPaper();
+});
+
 $('q').addEventListener('input',e=>{
   qs=e.target.value.trim().toLowerCase();
   $('qClr').hidden=!qs;
@@ -2344,7 +2450,7 @@ const DOC={
 function openDoc(kind){
   const p=curPrj(); if(!p) return;
   docKind = DOC[kind] ? kind : 'invoice';
-  invData={maker:makerOf(), p, steps:stepsOf(p.id)};
+  invData={maker:makerOf(), p, steps:stepsOf(p.id), list:null};
   $('i-link').hidden = docKind!=='invoice';     // 링크로 보내는 건 명세서뿐입니다
   // 저장해 둔 견적서를 열었을 때만 고치기·옮기기가 뜹니다
   $('quoteActions').hidden = !(docKind==='quote' && p.kind==='quote');
@@ -2358,7 +2464,7 @@ function renderPaper(){
   if(!invData) return;
   $('paper').innerHTML = docKind==='invoice'
     ? paperHTML(invData.maker, invData.p, invData.steps)
-    : formHTML(invData.maker, invData.p, docKind);
+    : formHTML(invData.maker, billDoc(invData.list || [invData.p], docKind));
   fitPaper();
   fillPhotos($('paper'));
 }
@@ -2457,39 +2563,76 @@ function paperHTML(mk,p,steps){
 /* ── 청구서 · 견적서 ──
    제본소에서 오래 쓰던 종이 양식 그대로입니다.
    왼쪽에 날짜·받는 곳, 오른쪽에 우리 사업자 정보, 그 아래 품목표.
-   명세서와 달리 줄마다 세액을 따로 적습니다. */
-function formHTML(mk,p,kind){
-  const D=DOC[kind]||DOC.bill;
-  const m=calc(p);
-  const rate=num(p.vat);
-  const today=todayKey();
-  const d=new Date(today+'T00:00:00');
-  const dateKo=d.getFullYear()+'년 '+(d.getMonth()+1)+'월 '+d.getDate()+'일';
+   명세서와 달리 줄마다 세액을 따로 적습니다.
 
-  const lines=m.lines.map((l,i)=>{
-    const vat=Math.round(l.amount*rate/100);
+   한 건짜리와 월말 묶음이 같은 함수를 씁니다.
+   묶음일 때만 '날짜' 칸이 하나 늘어납니다. */
+
+/* 여러 건을 한 장에 담을 때 위에 적을 기간 */
+function periodLabel(list){
+  const ds=list.map(p=>p.doneOn||p.dueOn||p.startedOn).filter(Boolean).sort();
+  if(!ds.length) return '';
+  const a=ds[0], b=ds[ds.length-1];
+  if(a.slice(0,7)===b.slice(0,7)){
+    return Number(a.slice(0,4))+'년 '+Number(a.slice(5,7))+'월분';
+  }
+  return shortDay(a)+' ~ '+shortDay(b);
+}
+/* 청구·견적에 들어갈 줄들을 한 벌로 만듭니다 */
+function billDoc(list, kind){
+  const multi = list.length>1;
+  const rows=[];
+  for(const p of list){
+    const ls=linesOf(p);
+    ls.forEach((l,i)=>rows.push({
+      date: i===0 ? (p.doneOn||p.dueOn||p.startedOn||'') : '',
+      name: l.name,
+      spec: i===0 ? (p.size||'') : (l.spec||''),   // 규격은 본품 줄에만
+      qty:l.qty, price:l.price, amount:l.amount, rate:num(p.vat)
+    }));
+  }
+  const supply=rows.reduce((a,r)=>a+r.amount,0);
+  const vat=rows.reduce((a,r)=>a+Math.round(r.amount*r.rate/100),0);
+  return {
+    client:(list[0]&&list[0].client)||'',
+    sub: multi ? periodLabel(list)+' · '+list.length+'건'
+               : [(list[0]&&list[0].name)||'', (list[0]&&list[0].code)?'발주번호 '+list[0].code:'']
+                 .filter(Boolean).join(' · '),
+    rows, supply, vat, total:supply+vat, showDate:multi, kind
+  };
+}
+
+function formHTML(mk, doc){
+  const D=DOC[doc.kind]||DOC.bill;
+  const dt=new Date(todayKey()+'T00:00:00');
+  const dateKo=dt.getFullYear()+'년 '+(dt.getMonth()+1)+'월 '+dt.getDate()+'일';
+  const nCols = doc.showDate ? 10 : 9;
+
+  const line=(r,i)=>{
+    const v=Math.round(r.amount*r.rate/100);
     return '<tr>'+
       '<td class="c">'+(i+1)+'</td>'+
-      '<td>'+esc(l.name)+'</td>'+
-      /* 규격은 첫 줄(본품)에만 적습니다. 박스·용달비 같은 줄은 비워 둡니다 —
-         종이 양식에서도 그렇게 씁니다. */
-      '<td class="c">'+esc(i===0 ? (p.size||'') : (l.spec||''))+'</td>'+
-      '<td class="n">'+(l.qty?money(l.qty):'')+'</td>'+
-      '<td class="n">'+(l.price?money(l.price):'')+'</td>'+
-      '<td class="n">'+money(l.amount)+'</td>'+
-      '<td class="n">'+money(vat)+'</td>'+
-      '<td class="n">'+money(l.amount+vat)+'</td>'+
+      (doc.showDate?'<td class="c">'+esc(r.date?shortDay(r.date):'')+'</td>':'')+
+      '<td>'+esc(r.name)+'</td>'+
+      '<td class="c">'+esc(r.spec||'')+'</td>'+
+      '<td class="n">'+(r.qty?money(r.qty):'')+'</td>'+
+      '<td class="n">'+(r.price?money(r.price):'')+'</td>'+
+      '<td class="n">'+money(r.amount)+'</td>'+
+      '<td class="n">'+money(v)+'</td>'+
+      '<td class="n">'+money(r.amount+v)+'</td>'+
       '<td></td></tr>';
-  }).join('');
-  // 종이 양식처럼 빈 줄을 남겨 둡니다. 손으로 덧붙여 쓰는 자리입니다.
-  const blanks=Math.max(0, 8-m.lines.length);
-  const pad=Array.from({length:blanks},()=>
-    '<tr><td class="c">&nbsp;</td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td></tr>').join('');
-  const qtySum=m.lines.reduce((a,l)=>a+num(l.qty),0);
+  };
+  const blank='<tr>'+Array.from({length:nCols},()=>'<td>&nbsp;</td>').join('')+'</tr>';
+  const pad=Array.from({length:Math.max(0,8-doc.rows.length)},()=>blank).join('');
+  const qtySum=doc.rows.reduce((a,r)=>a+num(r.qty),0);
+
+  const cols = doc.showDate
+    ? ['5%','9%','19%','12%','8%','9%','12%','9%','12%','5%']
+    : ['5%','22%','14%','9%','10%','12%','10%','12%','6%'];
 
   return ''+
   '<div class="ttl">'+esc(D.title)+'</div>'+
-  '<div class="sub">'+esc(p.name||'')+(p.code?' · 발주번호 '+esc(p.code):'')+'</div>'+
+  '<div class="sub">'+esc(doc.sub||'')+'</div>'+
 
   '<table class="bt"><colgroup>'+
     '<col style="width:27%"><col style="width:13%"><col style="width:22%">'+
@@ -2499,27 +2642,25 @@ function formHTML(mk,p,kind){
       '<th>등록번호</th><td class="c" colspan="3">'+esc(mk.bizNo||'')+'</td></tr>'+
     '<tr><th>상 호</th><td class="c">'+esc(mk.name||'')+'</td>'+
       '<th>성 명</th><td class="c">'+esc(mk.ceo||'')+'</td></tr>'+
-    '<tr><td class="who"><b>'+esc(p.client||'')+'</b> 귀하</td>'+
+    '<tr><td class="who"><b>'+esc(doc.client||'')+'</b> 귀하</td>'+
       '<th>사업장주소</th><td class="l" colspan="3">'+esc(mk.addr||'')+'</td></tr>'+
     '<tr><td class="who" rowspan="2"><span class="sm">'+esc(D.lead)+'</span></td>'+
       '<th>업 태</th><td class="c">'+esc(mk.bizType||'')+'</td>'+
       '<th>종 목</th><td class="c">'+esc(mk.bizItem||'')+'</td></tr>'+
     '<tr><th>'+esc(D.sumLabel)+'</th><td class="l sum" colspan="3">'+
-      esc(hanMoney(m.total))+' <span style="font-weight:600">(₩'+money(m.total)+')</span></td></tr>'+
+      esc(hanMoney(doc.total))+' <span style="font-weight:600">(₩'+money(doc.total)+')</span></td></tr>'+
   '</tbody></table>'+
 
-  '<table class="bl"><colgroup>'+
-    '<col style="width:5%"><col style="width:22%"><col style="width:14%"><col style="width:9%">'+
-    '<col style="width:10%"><col style="width:12%"><col style="width:10%"><col style="width:12%">'+
-    '<col style="width:6%"></colgroup>'+
-    '<thead><tr><th>NO</th><th>품 명</th><th>규 격</th><th>수 량</th><th>단 가</th>'+
+  '<table class="bl"><colgroup>'+cols.map(w=>'<col style="width:'+w+'">').join('')+'</colgroup>'+
+    '<thead><tr><th>NO</th>'+(doc.showDate?'<th>날 짜</th>':'')+
+      '<th>품 명</th><th>규 격</th><th>수 량</th><th>단 가</th>'+
       '<th>공급가액</th><th>세 액</th><th>합계금액</th><th>비 고</th></tr></thead>'+
-    '<tbody>'+lines+pad+
-    '<tr class="tot"><td colspan="3"></td>'+
+    '<tbody>'+doc.rows.map(line).join('')+pad+
+    '<tr class="tot"><td colspan="'+(doc.showDate?4:3)+'"></td>'+
       '<td class="n">'+(qtySum?money(qtySum):'')+'</td><td></td>'+
-      '<td class="n">₩'+money(m.supply)+'</td>'+
-      '<td class="n">₩'+money(m.vat)+'</td>'+
-      '<td class="n">₩'+money(m.total)+'</td><td></td></tr>'+
+      '<td class="n">₩'+money(doc.supply)+'</td>'+
+      '<td class="n">₩'+money(doc.vat)+'</td>'+
+      '<td class="n">₩'+money(doc.total)+'</td><td></td></tr>'+
   '</tbody></table>'+
 
   '<div class="bankline">'+
@@ -2528,7 +2669,7 @@ function formHTML(mk,p,kind){
     (mk.tel?'<span><b>TEL</b> '+esc(mk.tel)+'</span>':'')+
     (mk.fax?'<span><b>FAX</b> '+esc(mk.fax)+'</span>':'')+
   '</div>'+
-  (kind==='quote'
+  (doc.kind==='quote'
     ? '<div class="tail">※ 이 견적은 발행일로부터 30일간 유효합니다.'+(mk.note?'\n'+esc(mk.note):'')+'</div>'
     : (mk.note?'<div class="tail">'+esc(mk.note)+'</div>':''));
 }
@@ -2567,6 +2708,34 @@ $('i-xlsx').addEventListener('click',async ()=>{
   $('i-xlsx').disabled=true;
   try{
     const XLSX=await loadXLSX();
+
+    /* 여러 건을 묶은 청구서는 줄이 프로젝트를 가로지릅니다.
+       그때는 명세서 틀 대신 청구서 줄을 그대로 옮깁니다. */
+    if(invData.list && invData.list.length>1){
+      const doc=billDoc(invData.list, docKind);
+      const B=[[(DOC[docKind]||DOC.bill).ko],[doc.client+' 귀하', doc.sub],[],
+               ['날짜','품명','규격','수량','단가','공급가액','세액','합계금액']];
+      for(const r of doc.rows){
+        const v=Math.round(r.amount*r.rate/100);
+        B.push([r.date||'', r.name, r.spec||'', r.qty||'', r.price||'', r.amount, v, r.amount+v]);
+      }
+      B.push([]);
+      B.push(['','','','','합계', doc.supply, doc.vat, doc.total]);
+      const ws2=XLSX.utils.aoa_to_sheet(B);
+      ws2['!cols']=[{wch:12},{wch:26},{wch:16},{wch:9},{wch:12},{wch:14},{wch:12},{wch:14}];
+      for(let r=0;r<B.length;r++) for(const c of [3,4,5,6,7]){
+        const ref=XLSX.utils.encode_cell({r,c});
+        if(ws2[ref]&&typeof ws2[ref].v==='number') ws2[ref].z='#,##0';
+      }
+      const wb2=XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb2,ws2,(DOC[docKind]||DOC.bill).ko);
+      XLSX.writeFile(wb2, [(DOC[docKind]||DOC.bill).ko, doc.client.replace(/[\/:*?"<>|]/g,''),
+        todayKey().replace(/-/g,'')].filter(Boolean).join('_')+'.xlsx');
+      toast('엑셀로 내려받았습니다');
+      $('i-xlsx').disabled=false;
+      return;
+    }
+
     const m=calc(p), span=spanOf(p);
     const A=[];
     A.push([(DOC[docKind]||DOC.invoice).ko]);
@@ -2679,6 +2848,8 @@ TABS.forEach(k=>$('t-'+k).addEventListener('click',()=>{
 function paintPerms(){
   const a=isAdmin();
   $('t-quote').hidden=!a;
+  $('selToggle').hidden=!a;
+  if(!a && selMode) setSelMode(false);
   const bar=document.querySelector('nav.tabs .in');
   if(bar) bar.className = a ? 'in in5' : 'in';
   if($('n-priceRow'))  $('n-priceRow').hidden  = !a;
