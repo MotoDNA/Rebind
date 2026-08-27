@@ -100,6 +100,12 @@ textarea.inp{padding:14px;height:auto;min-height:88px;line-height:1.55}
   font-size:.84rem;font-weight:600;line-height:1.55;margin-bottom:14px}
 .readnote b{font-weight:800}
 .inp.num{text-align:right;font-variant-numeric:tabular-nums}
+/* 고르는 칸 — 오른쪽에 화살표를 그려 넣습니다 (기본 화살표를 껐기 때문에) */
+select.inp{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238B95A1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat;background-position:right 12px center;background-size:18px;
+  padding-right:38px;cursor:pointer;
+}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 
@@ -691,7 +697,8 @@ nav.tabs button:active{opacity:.6}
           </div>
           <div class="field">
             <label for="n-unit">단위</label>
-            <input id="n-unit" class="inp" value="부" placeholder="부 · 권 · 매">
+            <select id="n-unit" class="inp"></select>
+            <input id="n-unitTxt" class="inp" placeholder="직접 적으세요 (예: 매)" hidden style="margin-top:8px">
           </div>
         </div>
         <div class="row2">
@@ -1059,6 +1066,18 @@ nav.tabs button:active{opacity:.6}
 
 <div id="toast"></div>
 <input type="file" id="filePick" accept="image/*" hidden>
+<input type="file" id="filePickCam" accept="image/*" capture="environment" hidden>
+
+<!-- ───── 사진을 어디서 ───── -->
+<div class="sheet" id="sheetPick" hidden>
+  <div class="grab"></div>
+  <h3 id="pickTitle">사진</h3>
+  <div class="btnrow" style="margin-top:0">
+    <button class="btn" id="pk-cam" type="button">촬영하기</button>
+    <button class="btn ghost" id="pk-lib" type="button">앨범에서 고르기</button>
+  </div>
+  <button class="btn ghost" id="pk-close" type="button" style="margin-top:12px">취소</button>
+</div>
 
 <script>
 /* ══════════════════════════════════════════════
@@ -1447,6 +1466,38 @@ function unpaidDays(p){
   return Math.max(0, daysBetween(p.doneOn, todayKey())-1);
 }
 
+/* ───────── 단위 ─────────
+   제본소마다 세는 말이 다릅니다. 흔한 것을 골라 두고,
+   없으면 직접 적게 둡니다. 예전에 적어 둔 말도 그대로 살립니다. */
+const UNITS=['부','권','장','세트','기타'];
+function unitOptions(){
+  return UNITS.map(u=>'<option value="'+u+'">'+u+'</option>').join('')+
+         '<option value="__etc">직접입력</option>';
+}
+function unitSet(selId,txtId,v){
+  const sel=$(selId), txt=$(txtId);
+  if(!sel) return;
+  if(!sel.options.length) sel.innerHTML=unitOptions();
+  v=String(v==null?'':v).trim() || '부';
+  if(UNITS.includes(v)){ sel.value=v; if(txt){ txt.hidden=true; txt.value='' } }
+  else { sel.value='__etc'; if(txt){ txt.hidden=false; txt.value=v } }
+}
+function unitGet(selId,txtId){
+  const sel=$(selId), txt=$(txtId);
+  if(!sel) return '부';
+  if(sel.value!=='__etc') return sel.value;
+  return (txt && txt.value.trim()) || '부';
+}
+function unitBind(selId,txtId){
+  const sel=$(selId); if(!sel || sel.dataset.bound) return;
+  sel.dataset.bound='1';
+  sel.addEventListener('change',()=>{
+    const etc = sel.value==='__etc';
+    const txt=$(txtId);
+    if(txt){ txt.hidden=!etc; if(etc) txt.focus() }
+  });
+}
+
 /* ───────── 자재 입고 ─────────
    고객사가 인쇄를 마친 종이를 보내 옵니다. 표지·내지·후표지가 따로 오고
    다 들어와야 공정을 시작합니다. 그래서 공정 카드 위에 놓습니다. */
@@ -1476,7 +1527,7 @@ function memName(id){
 }
 
 /* ═════════ 바텀시트 · 화면 잠금 ═════════ */
-const SHEET_IDS=['sheetStep','sheetSpec','sheetMoney','sheetShare','sheetMore','sheetQuotePick','sheetSettle'];
+const SHEET_IDS=['sheetStep','sheetSpec','sheetMoney','sheetShare','sheetMore','sheetQuotePick','sheetSettle','sheetPick'];
 function anySheetOpen(except){
   return SHEET_IDS.some(id=>id!==except && $(id) && !$(id).hidden);
 }
@@ -1510,13 +1561,30 @@ const photoUrls=new Map();      /* 경로 → 한시적 주소. 매번 서명하
 /* 어느 크기로 줄일지는 부를 때 정합니다.
    여기서 shrink 를 바로 가리키면 아직 정의되기 전이라 앱이 뜨다 멈춥니다. */
 let pickShrink=null;
-function pickImage(cb,how){ pickCb=cb; pickShrink=how||null; $('filePick').value=''; $('filePick').click() }
-$('filePick').addEventListener('change',async e=>{
+
+/* ask 를 켜면 "촬영 / 앨범" 을 먼저 묻습니다.
+   폰에 따라 사진 칸을 그냥 누르면 곧장 카메라만 열리는 것이 있어서
+   두 길을 따로 둡니다. */
+function pickImage(cb,how,ask,title){
+  pickCb=cb; pickShrink=how||null;
+  if(ask){ $('pickTitle').textContent=title||'사진'; openSheetEl('sheetPick'); return }
+  $('filePick').value=''; $('filePick').click();
+}
+/* 누른 그 자리에서 바로 열어야 합니다.
+   시트를 닫고 잠시 뒤에 열면 아이폰이 "사람이 누른 것" 으로 안 보고 막습니다. */
+function firePick(el){ el.value=''; el.click(); closeSheetEl('sheetPick') }
+$('pk-cam').addEventListener('click',()=>firePick($('filePickCam')));
+$('pk-lib').addEventListener('click',()=>firePick($('filePick')));
+$('pk-close').addEventListener('click',()=>{ pickCb=null; closeSheetEl('sheetPick') });
+
+async function onPicked(e){
   const f=e.target.files&&e.target.files[0];
   if(!f||!pickCb) return;
   const cb=pickCb; pickCb=null;
   try{ cb(await (pickShrink||shrink)(f)) }catch(err){ toast('사진을 읽지 못했습니다') }
-});
+}
+$('filePick').addEventListener('change',onPicked);
+$('filePickCam').addEventListener('change',onPicked);
 
 /* 큰 사진을 그대로 올리면 보관함이 금방 찹니다. 긴 변 1600px 로 줄입니다. */
 const shrink = f => shrinkTo(f, 1600, .82);
@@ -1813,7 +1881,7 @@ let newEditId=null;       // 고치는 중인 견적서
 
 const NEW_MAP={
   'n-name':'name','n-client':'client','n-person':'person','n-phone':'phone','n-code':'code',
-  'n-qty':'qty','n-unit':'unit','n-size':'size','n-pages':'pages','n-color':'color',
+  'n-qty':'qty','n-size':'size','n-pages':'pages','n-color':'color',
   'n-paperCover':'paperCover','n-paperInner':'paperInner','n-bind':'bind','n-finish':'finish',
   'n-price':'price','n-vat':'vat','n-start':'startedOn','n-due':'dueOn','n-memo':'memo'
 };
@@ -1829,7 +1897,7 @@ function paintNewMode(){
 
 function clearNew(){
   Object.keys(NEW_MAP).forEach(id=>{ if($(id)) $(id).value='' });
-  $('n-unit').value='부';
+  unitSet('n-unit','n-unitTxt','부');
   $('n-vat').value=String(issuer&&issuer.vat_rate!=null?issuer.vat_rate:10);
   $('n-start').value=todayKey();
   renderOpts([], 'nOptBox');
@@ -1845,7 +1913,7 @@ function fillNew(src){
     const v=src[k];
     $(id).value = (v==null || v==='' || v===0) ? '' : v;   // 0 은 빈 칸으로 둡니다
   }
-  $('n-unit').value = src.unit || '부';
+  unitSet('n-unit','n-unitTxt', src.unit || '부');
   renderOpts(src.options||[], 'nOptBox');
   hideClientAC();
   paintNewMode();
@@ -1856,7 +1924,7 @@ function readNew(){
   return {
     name:o.name.trim(), client:o.client.trim(), person:o.person.trim(), phone:o.phone.trim(),
     email:'', code:o.code.trim(),
-    qty:num(o.qty), unit:(o.unit||'부').trim(),
+    qty:num(o.qty), unit:unitGet('n-unit','n-unitTxt'),
     size:o.size.trim(), pages:num(o.pages)||null, color:o.color.trim(),
     paperCover:o.paperCover.trim(), paperInner:o.paperInner.trim(), paper:'',
     bind:o.bind.trim(), finish:o.finish.trim(),
@@ -1919,7 +1987,7 @@ $('n-save').addEventListener('click',async ()=>{
 let orderBlob=null;          /* 저장할 때 함께 올릴 원본 */
 
 $('shootOrder').addEventListener('click',()=>{
-  pickImage(readOrderPhoto, shrinkDoc);
+  pickImage(readOrderPhoto, shrinkDoc, true, '작업의뢰서');
 });
 
 async function readOrderPhoto(blob){
@@ -1958,10 +2026,11 @@ function blobToB64(b){
    사람이 먼저 적어 둔 것을 사진이 지우면 안 되니까요. */
 function applyOrder(o,uncertain){
   const KEY={name:'n-name',client:'n-client',person:'n-person',phone:'n-phone',code:'n-code',
-             qty:'n-qty',unit:'n-unit',size:'n-size',pages:'n-pages',color:'n-color',
+             qty:'n-qty',size:'n-size',pages:'n-pages',color:'n-color',
              paperCover:'n-paperCover',paperInner:'n-paperInner',bind:'n-bind',finish:'n-finish',
              dueOn:'n-due',memo:'n-memo'};
   let filled=0;
+  if(o.unit){ unitSet('n-unit','n-unitTxt',o.unit); filled++ }
   for(const [k,id] of Object.entries(KEY)){
     const el=$(id); if(!el) continue;
     el.classList.remove('check');
@@ -1980,7 +2049,7 @@ function applyOrder(o,uncertain){
   const koOf={name:'제품명',client:'고객사',person:'담당자',phone:'연락처',code:'발주번호',
               qty:'수량',unit:'단위',size:'규격',pages:'면수',color:'색상',
               paperCover:'표지 용지',paperInner:'내지 용지',bind:'제본',finish:'후가공',
-              dueOn:'납기일',memo:'메모'};
+              dueOn:'납기일',memo:'메모',unit:'단위'};
   const div=document.createElement('div');
   div.id='readNote'; div.className='readnote';
   div.innerHTML='<b>'+filled+'칸을 채웠습니다.</b> 저장하기 전에 눈으로 한 번 봐 주세요.'+
@@ -2046,10 +2115,11 @@ function useClient(c){
   $('n-client').value=c;
   if(src){
     // 업체마다 굳어진 사양이 있습니다. 수량과 발주번호만 비워 둡니다.
-    const keep=['person','phone','size','pages','color','paperCover','paperInner','bind','finish','unit','price'];
+    const keep=['person','phone','size','pages','color','paperCover','paperInner','bind','finish','price'];
     for(const [id,k] of Object.entries(NEW_MAP)){
       if(keep.includes(k) && $(id) && src[k]) $(id).value=src[k];
     }
+    if(src.unit) unitSet('n-unit','n-unitTxt',src.unit);
     if((src.options||[]).length) renderOpts(JSON.parse(JSON.stringify(src.options)),'nOptBox');
   }
   hideClientAC();
@@ -2640,12 +2710,20 @@ function openSpec(){
   const p=curPrj(); if(!p) return;
   $('sp-save').dataset.mode='';
   $('sheetSpec').querySelector('h3').textContent='제조 상세';
-  $('specForm').innerHTML=SPEC_FIELDS.map(([k,ko,t])=>
-    '<div class="field"><label for="sf-'+k+'">'+esc(ko)+'</label>'+
-    '<input id="sf-'+k+'" class="inp'+(t==='number'?' num':'')+'" type="'+t+'"'+
-    (t==='number'?' inputmode="numeric" min="0"':'')+' value="'+esc(p[k]??'')+'"></div>').join('')+
+  $('specForm').innerHTML=SPEC_FIELDS.map(([k,ko,t])=>{
+    if(k==='unit'){
+      return '<div class="field"><label for="sf-unit">'+esc(ko)+'</label>'+
+        '<select id="sf-unit" class="inp">'+unitOptions()+'</select>'+
+        '<input id="sf-unitTxt" class="inp" placeholder="직접 적으세요 (예: 매)" hidden style="margin-top:8px"></div>';
+    }
+    return '<div class="field"><label for="sf-'+k+'">'+esc(ko)+'</label>'+
+      '<input id="sf-'+k+'" class="inp'+(t==='number'?' num':'')+'" type="'+t+'"'+
+      (t==='number'?' inputmode="numeric" min="0"':'')+' value="'+esc(p[k]??'')+'"></div>';
+  }).join('')+
     '<div class="field"><label>그 밖의 옵션</label><div id="optBox"></div>'+
     '<button class="btn line sm" id="sf-addopt" style="width:100%;margin-top:10px">+ 옵션 추가</button></div>';
+  unitSet('sf-unit','sf-unitTxt', p.unit || '부');
+  unitBind('sf-unit','sf-unitTxt');
   renderOpts(p.options||[]);
   $('sf-addopt').addEventListener('click',()=>{
     const list=readOpts(); list.push({label:'',value:''}); renderOpts(list);
@@ -2679,10 +2757,10 @@ $('sp-save').addEventListener('click',async ()=>{
   if($('sp-save').dataset.mode==='dates') return;   // 일정 시트가 맡습니다
   const patch={};
   for(const [k,,t] of SPEC_FIELDS){
+    if(k==='unit'){ patch.unit=unitGet('sf-unit','sf-unitTxt'); continue }
     const v=$('sf-'+k).value;
     patch[k]= t==='number' ? (num(v)||(k==='pages'?null:0)) : v.trim();
   }
-  patch.unit=patch.unit||'부';
   patch.options=readOpts().filter(o=>o.label||o.value);
   if(await savePrj(patch)) closeSheetEl('sheetSpec');
 });
@@ -2793,7 +2871,7 @@ function addShot(){
       await savePrj({photos:[...(p.photos||[]),path]},true);
       toast('사진을 올렸습니다');
     }catch(e){ toast('올리지 못했습니다: '+String(e.message||e).slice(0,40)) }
-  });
+  }, null, true, '완성본 사진');
 }
 async function rmShot(path){
   const p=curPrj(); if(!p) return;
@@ -3564,6 +3642,9 @@ function renderPublic(d){
     renderPaper();
   });
 }
+
+unitSet('n-unit','n-unitTxt','부');
+unitBind('n-unit','n-unitTxt');
 
 /* ═════════ 시작 ═════════ */
 (async function boot(){
