@@ -351,6 +351,9 @@ nav.tabs button:active{opacity:.6}
 #pub .foot{text-align:center;color:var(--dim);font-size:.76rem;font-weight:600;margin-top:28px;line-height:1.7}
 
 /* ───── 거래명세서 (A4) ───── */
+/* 고객사 화면(#pub, 95) 위로 올라와야 합니다.
+   링크로 들어온 분이 명세서를 열면 이 장이 맨 앞에 서야 하기 때문입니다. */
+#inv{z-index:96}
 #inv .paperwrap{background:var(--fill);border-radius:var(--r2);padding:12px;overflow-x:auto}
 .paper{
   background:#fff;color:#111;width:794px;min-height:1123px;padding:46px 42px;
