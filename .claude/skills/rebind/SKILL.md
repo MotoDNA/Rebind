@@ -123,5 +123,11 @@ print(sorted(u for u in used if u not in ids))"
 `b2000000-…` 으로 시작하는 10건, `a1000000-…` 으로 시작하는 3건이 들어 있습니다.
 
 ```bash
-supabase db query --linked "delete from projects where id like 'b2000000-%'"
+# ACTIVA 것 (예전 시연 자료)
+supabase db query --linked "delete from projects where id::text like 'b2000000-%'"
+# BKT 것 (2026-08-28 에 넣은 예시 다섯 건)
+supabase db query --linked "delete from projects where id::text like 'c3000000-%'"
 ```
+
+`id` 가 uuid 라 `::text` 를 붙여야 합니다. 안 붙이면 "연산자가 없다" 며 멈춥니다.
+금액과 공정 기록은 딸려서 같이 지워집니다.
