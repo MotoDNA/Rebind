@@ -162,6 +162,19 @@ textarea.inp{padding:14px;height:auto;min-height:88px;line-height:1.55}
 .badge.hold{background:var(--amber-bg);color:var(--amber)}
 .badge.late{background:var(--red-bg);color:var(--red)}
 .badge.share{background:var(--violet-bg);color:var(--violet)}
+.dots{display:inline-flex;gap:3px;flex:0 0 auto}
+.dots i{width:17px;height:17px;border-radius:6px;background:var(--fill);color:var(--dim);
+  font-style:normal;font-size:.62rem;font-weight:800;display:flex;align-items:center;justify-content:center}
+.dots i.on{background:var(--green-bg);color:var(--green)}
+
+/* 정산 줄 — 스위치와 날짜 */
+.setrow{display:flex;align-items:center;gap:12px;padding:11px 0}
+.setrow + .setrow{border-top:1px solid var(--line)}
+.setrow > span{flex:1;font-size:.9rem;font-weight:600}
+.setrow .when{font-size:.82rem;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
+.setrow .when.off{color:var(--dim);font-weight:600}
+.setrow input[type=date]{width:132px;height:38px;padding:0 10px;border:1px solid var(--line);
+  border-radius:10px;background:var(--fill2);font-size:.82rem;font-weight:600}
 
 /* 여러 건 골라 한 장으로 청구하기 */
 .prj .pick{flex:0 0 auto;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);
@@ -844,6 +857,7 @@ nav.tabs button:active{opacity:.6}
         <button class="btn ghost" id="q-edit">고치기</button>
         <button class="btn" id="q-toproject">프로젝트로 옮기기</button>
       </div>
+      <button class="btn line" id="i-billed" hidden style="margin-bottom:10px">청구 완료로 표시</button>
       <button class="btn ghost" id="i-link">고객사에 링크로 보내기</button>
       <p class="note">PDF 는 인쇄 화면에서 <b>대상을 "PDF로 저장"</b> 으로 바꾸면 파일로 떨어집니다.
         아이폰은 인쇄 미리보기에서 두 손가락으로 벌리면 PDF 가 됩니다.</p>
@@ -1204,6 +1218,7 @@ function fromRow(r){
     price:Number(r.unit_price||0), vat:Number(r.vat_rate??10),
     extras:Array.isArray(r.extra_items)?r.extra_items:[],
     status:r.status||'ready', startedOn:r.started_on||null, dueOn:r.due_on||null, doneOn:r.done_on||null,
+    billedOn:r.billed_on||null, taxedOn:r.taxed_on||null, paidOn:r.paid_on||null,
     photos:r.photos||[], memo:r.memo||'',
     token:r.share_token||null, shareOn:!!r.share_on,
     updatedAt:r.updated_at
@@ -1225,6 +1240,7 @@ function toRow(p){
     unit_price:num(p.price), vat_rate:num(p.vat),
     extra_items:p.extras||[],
     status:p.status||'ready', started_on:p.startedOn||null, due_on:p.dueOn||null, done_on:p.doneOn||null,
+    billed_on:p.billedOn||null, taxed_on:p.taxedOn||null, paid_on:p.paidOn||null,
     photos:p.photos||[], memo:p.memo||'',
     share_token:p.token||null, share_on:!!p.shareOn,
     deleted:false
@@ -1304,6 +1320,20 @@ function paperRows(p){
 }
 function paperText(p){
   return paperRows(p).map(([k,v])=> (k==='용지'?v:k.replace(' 용지','')+' '+v)).join(' · ');
+}
+
+/* 정산 세 단계 — 청구서를 보내고, 세금계산서를 끊고, 돈을 받습니다.
+   날짜로 둡니다. 비어 있으면 아직 안 한 것입니다. */
+const SETTLE=[
+  ['billedOn','청구서 발송', 'blue'],
+  ['taxedOn', '세금계산서 발행','violet'],
+  ['paidOn',  '수금 완료',    'green']
+];
+const isUnpaid = p => p.kind!=='quote' && p.status==='done' && !p.paidOn;
+/* 납품하고 며칠이 지났는지 — 미수금이 얼마나 묵었는지 봅니다 */
+function unpaidDays(p){
+  if(!isUnpaid(p) || !p.doneOn) return null;
+  return Math.max(0, daysBetween(p.doneOn, todayKey())-1);
 }
 
 function memName(id){
@@ -1406,7 +1436,8 @@ const onlyQuotes   = () => prjs.filter(p=>p.kind==='quote');
 
 function matches(p){
   if(p.kind==='quote') return false;
-  if(filterStat && p.status!==filterStat) return false;
+  if(filterStat==='unpaid'){ if(!isUnpaid(p)) return false }
+  else if(filterStat && p.status!==filterStat) return false;
   if(!qs) return true;
   const hay=[p.name,p.client,p.person,p.code,p.size,p.paper,p.bind].join(' ').toLowerCase();
   return hay.includes(qs);
@@ -1424,7 +1455,11 @@ function renderChips(){
   const live=onlyProjects();
   const counts={'':live.length};
   for(const k of Object.keys(STATUS)) counts[k]=live.filter(p=>p.status===k).length;
-  const items=[['','전체']].concat(Object.keys(STATUS).map(k=>[k,STATUS[k].ko]));
+  let items=[['','전체']].concat(Object.keys(STATUS).map(k=>[k,STATUS[k].ko]));
+  if(isAdmin()){
+    counts.unpaid=live.filter(isUnpaid).length;
+    items=items.concat([['unpaid','미수금']]);
+  }
   $('statChips').innerHTML=items.map(([k,ko])=>
     '<button class="chip" data-s="'+k+'" aria-pressed="'+(filterStat===k)+'">'+
       esc(ko)+'<span class="n">'+(counts[k]||0)+'</span></button>').join('');
@@ -1464,10 +1499,19 @@ function prjCard(p){
       '<span>'+(p.qty?money(p.qty)+esc(p.unit):'수량 미정')+'</span>'+
       '<span class="sp"></span>'+
       (p.shareOn?'<span class="badge share">공유 중</span>':'')+
+      (isAdmin()&&p.kind!=='quote'&&(p.status==='done'||p.billedOn)?settleDots(p):'')+
       '<span>'+due+'</span>'+
     '</div>'+
   '</button>';
 }
+/* 청 · 세 · 수 세 글자로 어디까지 갔는지 보여 줍니다 */
+function settleDots(p){
+  const on=[!!p.billedOn,!!p.taxedOn,!!p.paidOn];
+  const ko=['청','세','수'];
+  return '<span class="dots" title="청구서 발송 · 세금계산서 · 수금">'+
+    ko.map((t,i)=>'<i class="'+(on[i]?'on':'')+'">'+t+'</i>').join('')+'</span>';
+}
+
 function renderList(){
   const list=prjs.filter(matches).sort(sortForList);
   const box=$('listBox');
@@ -1558,7 +1602,7 @@ $('selBill').addEventListener('click',()=>{
   invData={maker:makerOf(), p:list[0], steps:[], list};
   $('i-link').hidden=true; $('quoteActions').hidden=true;
   $('inv').hidden=false; $('inv').scrollTop=0; lockScroll();
-  renderPaper();
+  renderPaper(); paintBilledBtn();
 });
 
 $('q').addEventListener('input',e=>{
@@ -1817,7 +1861,20 @@ function renderBoard(){
      '<dt>보류</dt><dd>'+all.filter(p=>p.status==='hold').length+'건</dd>'+
      '<dt>이번 달 완료</dt><dd>'+all.filter(p=>p.status==='done'&&String(p.doneOn||'').slice(0,7)===todayKey().slice(0,7)).length+'건</dd>'+
      (isAdmin()?'<dt>공유 중</dt><dd>'+all.filter(p=>p.shareOn).length+'건</dd>':'')+
+     (isAdmin()?'<dt>미수금</dt><dd>'+all.filter(isUnpaid).length+'건</dd>':'')+
      '</div></div>';
+
+  /* 미수금 — 납품은 됐는데 아직 못 받은 것 */
+  const unpaid=all.filter(isUnpaid).sort((a,b)=>String(a.doneOn||'').localeCompare(String(b.doneOn||'')));
+  if(isAdmin() && unpaid.length){
+    const sum=unpaid.reduce((a,p)=>a+calc(p).total,0);
+    h+='<div class="card"><h3 style="color:var(--amber)">미수금 '+money(sum)+'원 · '+unpaid.length+'건</h3>'+
+       '<div class="glist">'+unpaid.map(p=>{
+         const d=unpaidDays(p);
+         return boardRow(p, d===null?'—':(d===0?'오늘 납품':d+'일째'));
+       }).join('')+'</div>'+
+       '<p class="note">납품은 끝났는데 아직 돈이 안 들어온 것입니다. 눌러서 정산 칸을 켜세요.</p></div>';
+  }
 
   if(late.length){
     h+='<div class="card"><h3 style="color:var(--red)">납기가 지났습니다</h3><div class="glist">'+
@@ -1967,6 +2024,25 @@ function renderDetail(){
      '<div class="btnrow"><button class="btn ghost sm" id="editDates" style="flex:1">일정 고치기</button></div>'+
      '</div>';
 
+  /* ── 정산 — 청구서 보냈나 · 계산서 끊었나 · 돈 받았나 ── */
+  if(isAdmin() && p.kind!=='quote'){
+    h+='<div class="card"><h3>정산</h3>';
+    h+=SETTLE.map(([k,ko])=>{
+      const on=!!p[k];
+      return '<div class="setrow">'+
+        '<input class="sw" type="checkbox" data-set="'+k+'"'+(on?' checked':'')+' aria-label="'+esc(ko)+'">'+
+        '<span>'+esc(ko)+'</span>'+
+        (on ? '<input type="date" data-setd="'+k+'" value="'+esc(p[k])+'">'
+            : '<span class="when off">아직</span>')+
+      '</div>';
+    }).join('');
+    const un=unpaidDays(p);
+    if(un!==null && un>0){
+      h+='<p class="note" style="color:var(--amber);font-weight:700">납품하고 '+un+'일째 못 받았습니다.</p>';
+    }
+    h+='</div>';
+  }
+
   /* ── 금액 — 관리자만 봅니다 ── */
   if(isAdmin()){
   h+='<div class="card"><h3>금액<span class="sp"></span>'+
@@ -2024,6 +2100,15 @@ function renderDetail(){
   });
   /* 아래는 관리자 화면에만 있습니다 */
   const on=(id,fn)=>{ const el=$(id); if(el) el.addEventListener('click',fn) };
+  $('detailBody').querySelectorAll('[data-set]').forEach(el=>{
+    el.addEventListener('change',()=>{
+      // 켜면 오늘 날짜를 박고, 끄면 비웁니다. 날짜는 옆 칸에서 고칠 수 있습니다.
+      savePrj({[el.dataset.set]: el.checked ? todayKey() : null}, true);
+    });
+  });
+  $('detailBody').querySelectorAll('[data-setd]').forEach(el=>{
+    el.addEventListener('change',()=>savePrj({[el.dataset.setd]: el.value || null}, true));
+  });
   on('editMoney', openMoney);
   on('saveMemo', ()=>savePrj({memo:$('d-memo').value.trim()}));
   on('goShare',  openShare);
@@ -2454,6 +2539,7 @@ function openDoc(kind){
   $('i-link').hidden = docKind!=='invoice';     // 링크로 보내는 건 명세서뿐입니다
   // 저장해 둔 견적서를 열었을 때만 고치기·옮기기가 뜹니다
   $('quoteActions').hidden = !(docKind==='quote' && p.kind==='quote');
+  paintBilledBtn();
   $('inv').hidden=false; $('inv').scrollTop=0; lockScroll();
   renderPaper();
 }
@@ -2673,6 +2759,37 @@ function formHTML(mk, doc){
     ? '<div class="tail">※ 이 견적은 발행일로부터 30일간 유효합니다.'+(mk.note?'\n'+esc(mk.note):'')+'</div>'
     : (mk.note?'<div class="tail">'+esc(mk.note)+'</div>':''));
 }
+
+/* 청구서를 뽑고 나면 그 건들을 '청구서 발송' 으로 찍어 둘 수 있습니다.
+   뽑는 것만으로 자동으로 찍지는 않습니다 — 미리 보기만 하고 안 보내는 일도 있으니까요. */
+function billTargets(){
+  return (invData && (invData.list || (invData.p ? [invData.p] : []))) || [];
+}
+function paintBilledBtn(){
+  const btn=$('i-billed'); if(!btn) return;
+  const list=billTargets();
+  const show = docKind==='bill' && isAdmin() && list.length;
+  btn.hidden=!show;
+  if(!show) return;
+  const done=list.filter(p=>p.billedOn).length;
+  btn.textContent = done===list.length
+    ? '청구 완료 표시됨 ('+shortDay(list[0].billedOn)+') — 되돌리기'
+    : '이 '+list.length+'건을 청구 완료로 표시';
+}
+$('i-billed').addEventListener('click',async ()=>{
+  const list=billTargets(); if(!list.length) return;
+  const allDone=list.every(p=>p.billedOn);
+  const val=allDone?null:todayKey();
+  if(allDone && !confirm('청구 완료 표시를 지울까요?')) return;
+  $('i-billed').disabled=true;
+  const {error}=await sb.from('projects').update({billed_on:val}).in('id',list.map(p=>p.id));
+  $('i-billed').disabled=false;
+  if(error){ toast('저장하지 못했습니다: '+String(error.message).slice(0,50)); return }
+  list.forEach(p=>{ p.billedOn=val; p.updatedAt=new Date().toISOString() });
+  paintBilledBtn(); renderChips(); renderList();
+  if(!$('detail').hidden && curPrj()) renderDetail();
+  toast(val?'청구 완료로 표시했습니다':'표시를 지웠습니다');
+});
 
 /* ── PDF — 브라우저 인쇄를 씁니다.
    따로 만들지 않는 이유: 한글 글꼴이 깨지지 않고, A4 여백을 브라우저가 맞춰 줍니다. */
@@ -3052,6 +3169,7 @@ function renderPublic(d){
     docKind='invoice';
     $('i-link').hidden=true;
     if($('quoteActions')) $('quoteActions').hidden=true;
+    if($('i-billed')) $('i-billed').hidden=true;
     $('inv').hidden=false; $('inv').scrollTop=0; lockScroll();
     renderPaper();
   });
