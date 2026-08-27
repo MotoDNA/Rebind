@@ -1470,8 +1470,8 @@ function calc(p){
 }
 /* 관리자인가 —
    금액·내부 메모·고객사 공유·명세서·청구서·견적서는 관리자만 봅니다.
-   여기서 가리는 것은 화면입니다. 데이터베이스는 여전히 회사 사람 모두에게
-   금액 칸을 내려 줍니다. 진짜로 막으려면 규칙을 손봐야 합니다(진행상황.md 참고). */
+   화면에서 가리고, 데이터베이스도 막습니다 — 금액은 딴 표(project_money)에
+   있고 그 표는 관리자에게만 내려갑니다 (sql/0009_money.sql). */
 const isAdmin = () => !!(me && me.role === 'admin');
 
 /* 용지 — 표지와 내지를 따로 적습니다.
@@ -3662,8 +3662,9 @@ function renderPublic(d){
   }
   h+='</div>';
 
-  const specRows=[['규격',p.size],['면수',p.pages?money(p.pages)+'면':''],['색상 · 도수',p.color],
-                  ['용지',p.paper],['제본 방식',p.bind],['후가공',p.finish]]
+  const specRows=[['규격',p.size],['면수',p.pages?money(p.pages)+'면':''],['색상 · 도수',p.color]]
+    .concat(paperRows(p))
+    .concat([['제본 방식',p.bind],['후가공',p.finish]])
     .concat((p.options||[]).map(o=>[o.label||'',o.value||'']))
     .filter(([,v])=>String(v||'').trim());
   if(specRows.length){
