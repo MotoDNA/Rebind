@@ -359,6 +359,10 @@ nav.tabs button:active{opacity:.6}
 .paper{
   background:#fff;color:#111;width:794px;min-height:1123px;padding:46px 42px;
   font-size:12px;line-height:1.45;letter-spacing:-.01em;transform-origin:top left;
+  /* 인쇄할 때도 색을 그대로 냅니다.
+     이게 없으면 브라우저가 배경을 빼고 찍어서, 검은 바탕 흰 글씨인
+     품목표 머리줄과 합계줄이 흰 바탕에 흰 글씨가 되어 사라집니다. */
+  print-color-adjust:exact; -webkit-print-color-adjust:exact;
 }
 .paper .ttl{text-align:center;font-size:27px;font-weight:800;letter-spacing:.32em;margin:0 0 4px;padding-left:.32em}
 .paper .sub{text-align:center;font-size:11px;color:#666;margin:0 0 22px}
@@ -397,7 +401,8 @@ nav.tabs button:active{opacity:.6}
 .paper .steps td.d{white-space:nowrap;color:#666;width:82px}
 .paper .steps td.p{text-align:right;white-space:nowrap;font-weight:700;width:44px;font-variant-numeric:tabular-nums}
 .paper .shotrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-.paper .shotrow img{width:150px;height:150px;object-fit:cover;border:1px solid #D5D8DC;border-radius:4px}
+.paper .shotrow img{width:150px;height:150px;object-fit:cover;border:1px solid #D5D8DC;border-radius:4px;background:#F4F5F7}
+.paper .shotcap{font-size:10px;color:#777;margin-top:5px}
 .paper .tail{margin-top:20px;font-size:10.5px;color:#555;line-height:1.7;white-space:pre-wrap}
 .paper .sign{margin-top:26px;text-align:right;font-size:11.5px;color:#333;line-height:1.9}
 .paper .sign b{font-size:13px}
@@ -419,6 +424,10 @@ nav.tabs button:active{opacity:.6}
   .paper{width:auto!important;max-width:100%!important;min-height:0!important;
     padding:0!important;transform:none!important;margin:0!important;font-size:11px}
   .paper .items tr,.paper .steps tr{page-break-inside:avoid}
+  /* 제목만 남고 그 아래가 다음 쪽으로 넘어가는 것을 막습니다 */
+  .paper h4{page-break-after:avoid}
+  .paper .shotrow{page-break-inside:avoid}
+  .paper .sign{page-break-inside:avoid}
 }
 </style>
 </head>
@@ -2114,10 +2123,13 @@ function paperHTML(mk,p,steps){
 
   ((p.photos||[]).length?'<h4>완성본</h4><div class="shotrow">'+
     (p.photos||[]).slice(0,4).map(x=>
+      /* 링크로 들어온 화면에는 한시적 주소가 이미 들어 있고,
+         직원 화면에는 경로만 있어 뒤늦게 채웁니다(fillPhotos). */
       typeof x==='string' && /^https?:/.test(x)
         ? '<img src="'+esc(x)+'" alt="">'
         : '<img data-path="'+esc(x)+'" alt="">').join('')+
-    '</div>':'')+
+    '</div><div class="shotcap">납품한 완성본 '+
+      ((p.photos||[]).length>4?'(총 '+(p.photos||[]).length+'장 중 4장)':'')+'</div>':'')+
 
   (mk.bank?'<div class="tail"><b>입금 계좌</b>  '+esc(mk.bank)+'</div>':'')+
   (mk.note?'<div class="tail">'+esc(mk.note)+'</div>':'')+
