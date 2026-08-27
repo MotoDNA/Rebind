@@ -331,9 +331,14 @@ nav.tabs button:active{opacity:.6}
 .acwrap{position:relative}
 .ac{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:20;background:#fff;
   border-radius:14px;box-shadow:var(--shx);overflow:hidden;max-height:280px;overflow-y:auto}
-.ac button{display:block;width:100%;text-align:left;padding:13px 16px;font-size:.92rem;font-weight:600}
-.ac button + button{border-top:1px solid var(--line)}
-.ac button:active{background:var(--fill)}
+.acrow{display:flex;align-items:center}
+.acrow + .acrow{border-top:1px solid var(--line)}
+.ac .pickc{flex:1;min-width:0;display:block;text-align:left;padding:13px 6px 13px 16px;font-size:.92rem;font-weight:600}
+.ac .pickc:active{background:var(--fill)}
+.ac .star{flex:0 0 auto;width:46px;height:46px;display:flex;align-items:center;justify-content:center;color:var(--dim)}
+.ac .star svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round}
+.ac .star.on{color:var(--amber)}
+.ac .star.on svg{fill:currentColor;stroke:currentColor}
 .ac .sub{display:block;font-size:.78rem;color:var(--mut);font-weight:500;margin-top:2px}
 .ac .hd{padding:11px 16px 7px;font-size:.75rem;font-weight:800;color:var(--dim)}
 
@@ -471,6 +476,61 @@ nav.tabs button:active{opacity:.6}
 .paper .tail{margin-top:20px;font-size:10.5px;color:#555;line-height:1.7;white-space:pre-wrap}
 .paper .sign{margin-top:26px;text-align:right;font-size:11.5px;color:#333;line-height:1.9}
 .paper .sign b{font-size:13px}
+
+/* ═══════════ 넓은 화면 (PC · 노트북) ═══════════
+   폰에 맞춘 한 줄짜리 화면을 그대로 키우면 가운데만 길쭉하고
+   양옆이 텅 빕니다. 화면이 넓어지면 카드를 두 줄로 세우고,
+   시트는 아래에서 올라오는 대신 가운데 대화상자로 띄웁니다.
+   명세서는 A4 도안(794px)이 줄어들지 않고 그대로 들어갑니다. */
+@media (min-width:1000px){
+  :root{--w:1080px}
+  main{padding:0 28px calc(var(--nav) + 44px)}
+  h1.ptitle{font-size:1.9rem;margin:22px 0 4px}
+  .appbar .in{height:62px;padding:0 28px}
+
+  /* 목록 · 폼 · 상세를 두 줄로 */
+  #listBox{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start}
+  #listBox .prj{margin-bottom:0}
+  #boardBox{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start}
+  #p-new,#p-set{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start}
+  #p-new>.ptitle,#p-new>.psub,#p-new>#fromQuote,#p-new>.btnrow,
+  #p-set>.ptitle,#p-set>.psub{grid-column:1/-1}
+  #detailBody{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start}
+  #detailBody>.dhead,#detailBody>.btnrow,#detailBody>.note{grid-column:1/-1}
+  #p-new .card + .card,#p-set .card + .card,
+  #boardBox .card + .card,#detailBody .card + .card{margin-top:0}
+  .sheetpage .inner{padding:0 28px 130px}
+  .dbar{margin:0 -28px;padding:0 20px;height:62px}
+  #p-quote,#quoteBox{max-width:720px}
+
+  /* 시트 — 아래에서 올라오지 않고 가운데에 뜹니다 */
+  .sheet{
+    left:50%;right:auto;bottom:auto;top:50%;width:560px;max-width:calc(100vw - 48px);
+    border-radius:22px;padding:22px 24px 24px;max-height:86vh;
+    transform:translate(-50%,-46%);opacity:0;
+    transition:transform .2s cubic-bezier(.2,.85,.3,1),opacity .16s;
+  }
+  .sheet.on{transform:translate(-50%,-50%);opacity:1}
+  .grab{display:none}
+
+  nav.tabs button{height:58px;font-size:.72rem}
+  nav.tabs .in5 button{font-size:.7rem}
+  .selbar .in{padding:12px 28px 14px}
+  .ac{max-height:340px}
+}
+
+/* 마우스가 있는 화면에서만 짚어 줍니다 */
+@media (hover:hover){
+  .prj:hover{box-shadow:0 4px 18px rgba(25,31,40,.10)}
+  .chip:hover{background:#fff}
+  .grow:hover{background:var(--fill2)}
+  .btn:hover{filter:brightness(.97)}
+  .iconbtn:hover{background:rgba(0,0,0,.04)}
+  nav.tabs button:hover{color:var(--sub)}
+  nav.tabs button[aria-selected="true"]:hover{color:var(--blue)}
+  .ac .pickc:hover{background:var(--fill2)}
+  .ac .star:hover{color:var(--amber)}
+}
 
 @page{size:A4;margin:10mm}
 @media print{
@@ -791,6 +851,7 @@ nav.tabs button:active{opacity:.6}
         <div class="n" id="selCount">0건</div>
         <div class="s" id="selSum">—</div>
       </div>
+      <button class="btn line" id="selSettle" style="margin-right:6px">정산</button>
       <button class="btn" id="selBill">청구서</button>
     </div>
   </div>
@@ -958,6 +1019,15 @@ nav.tabs button:active{opacity:.6}
   <button class="btn ghost" id="sh-close" type="button" style="margin-top:16px">닫기</button>
 </div>
 
+<!-- ───── 여러 건 정산 표시 ───── -->
+<div class="sheet" id="sheetSettle" hidden>
+  <div class="grab"></div>
+  <h3 id="settleTitle">정산 표시</h3>
+  <div class="glist" id="settleList"></div>
+  <p class="note">표시하면 오늘 날짜가 박힙니다. 날짜를 바꾸려면 프로젝트를 열어 정산 칸에서 고치세요.</p>
+  <button class="btn ghost" id="st2-close" type="button" style="margin-top:16px">닫기</button>
+</div>
+
 <!-- ───── 견적서 고르기 ───── -->
 <div class="sheet" id="sheetQuotePick" hidden>
   <div class="grab"></div>
@@ -1113,6 +1183,7 @@ function stepSuggestions(skip){
 let me=null, sb=null;
 let prjs=[], allSteps=[], issuer=null, members=[];
 let qs='', filterStat='';
+let favClients=new Set();      /* 내가 별을 단 거래처 */
 let curId=null;                 /* 지금 열어 둔 프로젝트 */
 let stepEditId=null;            /* 고치는 중인 공정 기록 */
 let extraDraft=[];              /* 추가 품목 임시 */
@@ -1196,6 +1267,31 @@ async function pull(){
     return {ok:true};
   }catch(e){ return {ok:false,msg:e.message||String(e)} }
 }
+/* ───────── 거래처 즐겨찾기 ─────────
+   사람마다 자주 붙는 곳이 다릅니다. 내 것만 보이고 기기를 바꿔도 따라옵니다. */
+async function pullFavs(){
+  if(!sb||!me) return;
+  const {data}=await sb.from('client_favorites').select('client');
+  favClients=new Set((data||[]).map(r=>r.client));
+}
+async function toggleFav(c){
+  c=String(c||'').trim(); if(!c) return;
+  const on=favClients.has(c);
+  if(on){
+    favClients.delete(c);
+    const {error}=await sb.from('client_favorites').delete()
+      .eq('company_id',me.companyId).eq('user_id',me.id).eq('client',c);
+    if(error){ favClients.add(c); toast('바꾸지 못했습니다'); return }
+  }else{
+    favClients.add(c);
+    const {error}=await sb.from('client_favorites')
+      .insert({company_id:me.companyId,user_id:me.id,client:c});
+    if(error){ favClients.delete(c); toast('바꾸지 못했습니다'); return }
+  }
+  paintClientAC($('n-client')?$('n-client').value.trim():'');
+  toast(on?'즐겨찾기에서 뺐습니다':'즐겨찾기에 넣었습니다');
+}
+
 async function pullIssuer(){
   if(!sb||!me) return;
   const {data}=await sb.from('company_settings').select('*').eq('company_id',me.companyId).maybeSingle();
@@ -1342,7 +1438,7 @@ function memName(id){
 }
 
 /* ═════════ 바텀시트 · 화면 잠금 ═════════ */
-const SHEET_IDS=['sheetStep','sheetSpec','sheetMoney','sheetShare','sheetMore','sheetQuotePick'];
+const SHEET_IDS=['sheetStep','sheetSpec','sheetMoney','sheetShare','sheetMore','sheetQuotePick','sheetSettle'];
 function anySheetOpen(except){
   return SHEET_IDS.some(id=>id!==except && $(id) && !$(id).hidden);
 }
@@ -1434,13 +1530,19 @@ async function removePhoto(path){
 const onlyProjects = () => prjs.filter(p=>p.kind!=='quote');
 const onlyQuotes   = () => prjs.filter(p=>p.kind==='quote');
 
-function matches(p){
+/* 검색어에만 걸어 봅니다. 칩 숫자는 이 결과를 세야
+   "거래처를 찾았더니 그 곳 것만 몇 건인지" 가 바로 보입니다. */
+function matchesQ(p){
   if(p.kind==='quote') return false;
-  if(filterStat==='unpaid'){ if(!isUnpaid(p)) return false }
-  else if(filterStat && p.status!==filterStat) return false;
   if(!qs) return true;
-  const hay=[p.name,p.client,p.person,p.code,p.size,p.paper,p.bind].join(' ').toLowerCase();
+  const hay=[p.name,p.client,p.person,p.code,p.size,
+             p.paperCover,p.paperInner,p.paper,p.bind].join(' ').toLowerCase();
   return hay.includes(qs);
+}
+function matches(p){
+  if(!matchesQ(p)) return false;
+  if(filterStat==='unpaid') return isUnpaid(p);
+  return !filterStat || p.status===filterStat;
 }
 function sortForList(a,b){
   /* 급한 것이 위로 — 진행 중 · 대기 · 보류 · 완료 순, 그 안에서는 납기가 가까운 것부터 */
@@ -1452,7 +1554,7 @@ function sortForList(a,b){
   return String(b.updatedAt).localeCompare(String(a.updatedAt));
 }
 function renderChips(){
-  const live=onlyProjects();
+  const live=onlyProjects().filter(matchesQ);
   const counts={'':live.length};
   for(const k of Object.keys(STATUS)) counts[k]=live.filter(p=>p.status===k).length;
   let items=[['','전체']].concat(Object.keys(STATUS).map(k=>[k,STATUS[k].ko]));
@@ -1570,7 +1672,7 @@ function toggleSel(id){
 }
 function paintSel(){
   if(!selMode) return;
-  const list=[...selIds].map(id=>prjs.find(p=>p.id===id)).filter(Boolean);
+  const list=selList();
   const sum=list.reduce((a,p)=>a+calc(p).total,0);
   const clients=[...new Set(list.map(p=>(p.client||'').trim()).filter(Boolean))];
   $('selCount').textContent = list.length ? list.length+'건 · ₩'+money(sum) : '고른 것 없음';
@@ -1578,6 +1680,7 @@ function paintSel(){
     : clients.length>1 ? '거래처가 '+clients.length+'곳 섞여 있습니다'
     : (clients[0]||'거래처 미정')+' · '+periodLabel(list);
   $('selBill').disabled = !list.length;
+  $('selSettle').disabled = !list.length;
 }
 $('selToggle').addEventListener('click',()=>setSelMode(!selMode));
 $('selAll').addEventListener('click',()=>{
@@ -1586,14 +1689,56 @@ $('selAll').addEventListener('click',()=>{
   shown.forEach(p=> all ? selIds.delete(p.id) : selIds.add(p.id));
   renderList(); paintSel();
 });
+/* 여러 건을 한 번에 정산 표시 */
+const SETTLE_COL={billedOn:'billed_on',taxedOn:'taxed_on',paidOn:'paid_on'};
+const selList=()=>[...selIds].map(id=>prjs.find(p=>p.id===id)).filter(Boolean);
+
+function paintSettleSheet(){
+  const list=selList();
+  $('settleTitle').textContent=list.length+'건 정산 표시';
+  $('settleList').innerHTML=SETTLE.map(([k,ko])=>{
+    const n=list.filter(p=>p[k]).length;
+    return '<div class="grow">'+
+      '<span class="nm">'+esc(ko)+
+        '<span style="display:block;font-size:.78rem;color:'+(n?'var(--green)':'var(--mut)')+
+        ';font-weight:600;margin-top:2px">'+(n?n+' / '+list.length+'건 표시됨':'아직')+'</span></span>'+
+      '<button class="btn sm line" data-s2="'+k+'" data-v="1">표시</button>'+
+      '<button class="btn sm ghost" data-s2="'+k+'" data-v="0" style="margin-left:6px">지우기</button>'+
+    '</div>';
+  }).join('');
+  $('settleList').querySelectorAll('[data-s2]').forEach(b=>{
+    b.addEventListener('click',()=>stampSettle(b.dataset.s2, b.dataset.v==='1'));
+  });
+}
+async function stampSettle(key,on){
+  const list=selList(); if(!list.length) return;
+  const val=on?todayKey():null;
+  const ids=list.map(p=>p.id);
+  $('settleList').querySelectorAll('button').forEach(b=>b.disabled=true);
+  const {error}=await sb.from('projects').update({[SETTLE_COL[key]]:val}).in('id',ids);
+  $('settleList').querySelectorAll('button').forEach(b=>b.disabled=false);
+  if(error){ toast('저장하지 못했습니다: '+String(error.message).slice(0,50)); return }
+  list.forEach(p=>{ p[key]=val; p.updatedAt=new Date().toISOString() });
+  const ko=(SETTLE.find(x=>x[0]===key)||[])[1]||'';
+  paintSettleSheet(); renderChips(); renderList(); paintSel();
+  toast(list.length+'건 '+ko+(on?' 표시했습니다':' 표시를 지웠습니다'));
+}
+$('selSettle').addEventListener('click',()=>{
+  if(!selIds.size){ toast('먼저 고르세요'); return }
+  paintSettleSheet(); openSheetEl('sheetSettle');
+});
+$('st2-close').addEventListener('click',()=>closeSheetEl('sheetSettle'));
+
 $('selBill').addEventListener('click',()=>{
-  const list=[...selIds].map(id=>prjs.find(p=>p.id===id)).filter(Boolean);
+  const list=selList();
   if(!list.length) return;
   const clients=[...new Set(list.map(p=>(p.client||'').trim()).filter(Boolean))];
   if(clients.length>1){
     toast('거래처가 섞여 있습니다 — '+clients.join(', ')+'. 한 곳씩 묶어 주세요');
     return;
   }
+  const already=list.filter(p=>p.billedOn).length;
+  if(already && !confirm('이미 청구한 프로젝트가 '+already+'개 있습니다.\n계속 하시겠습니까?')) return;
   // 날짜순으로 세웁니다. 청구서에 날짜별로 적히니까요.
   const dt=p=>String(p.doneOn||p.dueOn||p.startedOn||'');
   list.sort((a,b)=>dt(a).localeCompare(dt(b)));
@@ -1608,9 +1753,12 @@ $('selBill').addEventListener('click',()=>{
 $('q').addEventListener('input',e=>{
   qs=e.target.value.trim().toLowerCase();
   $('qClr').hidden=!qs;
-  renderList();
+  renderChips(); renderList();          // 칩 숫자도 검색 결과에 맞춥니다
 });
-$('qClr').addEventListener('click',()=>{ $('q').value=''; qs=''; $('qClr').hidden=true; renderList() });
+$('qClr').addEventListener('click',()=>{
+  $('q').value=''; qs=''; $('qClr').hidden=true;
+  renderChips(); renderList();
+});
 
 /* ═════════ 새 프로젝트 · 견적서 ═════════
    두 가지가 같은 폼을 씁니다. 담는 칸이 똑같아서 폼을 두 벌 두면
@@ -1711,31 +1859,48 @@ $('n-save').addEventListener('click',async ()=>{
    최근에 일한 업체 다섯 곳을 먼저 보여 주고,
    고르면 담당자·연락처와 지난번 사양까지 그대로 채웁니다.
    같은 곳에서 비슷한 것을 다시 시키는 일이 잦아서입니다. */
-function recentClients(q){
+function clientIndex(){
   const seen=new Map();
   const list=[...prjs].sort((a,b)=>String(b.updatedAt).localeCompare(String(a.updatedAt)));
   for(const p of list){
     const c=(p.client||'').trim();
     if(c && !seen.has(c)) seen.set(c,p);
   }
-  let out=[...seen.entries()];
+  // 별을 달았는데 아직 일한 적 없는 곳도 목록에 남겨 둡니다
+  for(const c of favClients) if(!seen.has(c)) seen.set(c,null);
+  return seen;
+}
+function recentClients(q){
+  let out=[...clientIndex().entries()];
   if(q){ const k=q.toLowerCase(); out=out.filter(([c])=>c.toLowerCase().includes(k)) }
-  return out.slice(0,5);
+  const fav=out.filter(([c])=>favClients.has(c));
+  const rest=out.filter(([c])=>!favClients.has(c)).slice(0,5);
+  return {fav, rest};
 }
 function paintClientAC(q){
-  const list=recentClients(q);
+  const {fav,rest}=recentClients(q);
   const box=$('clientAC');
-  if(!list.length){ box.hidden=true; return }
-  box.innerHTML='<div class="hd">최근 진행한 업체</div>'+list.map(([c,p])=>
-    '<button data-c="'+esc(c)+'">'+esc(c)+
-      '<span class="sub">'+esc([p.person,fmtPhone(p.phone),p.bind].filter(Boolean).join(' · ')||'—')+'</span>'+
-    '</button>').join('');
+  if(!fav.length && !rest.length){ box.hidden=true; return }
+  const row=([c,p])=>
+    '<div class="acrow">'+
+      '<button class="pickc" data-c="'+esc(c)+'">'+esc(c)+
+        '<span class="sub">'+esc(p?([p.person,fmtPhone(p.phone),p.bind].filter(Boolean).join(' · ')||'—')
+                               :'아직 진행한 건이 없습니다')+'</span></button>'+
+      '<button class="star'+(favClients.has(c)?' on':'')+'" data-fav="'+esc(c)+'" aria-label="즐겨찾기">'+
+        '<svg viewBox="0 0 24 24"><path d="M12 3.6l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8L3.6 9.7l5.8-.8z"/></svg>'+
+      '</button>'+
+    '</div>';
+  box.innerHTML =
+    (fav.length ? '<div class="hd">즐겨찾기</div>'+fav.map(row).join('') : '')+
+    (rest.length ? '<div class="hd">최근 진행한 업체</div>'+rest.map(row).join('') : '');
   box.hidden=false;
-  box.querySelectorAll('button').forEach(b=>{
-    // mousedown 으로 받습니다. click 을 기다리면 그 전에 blur 가 목록을 닫아 버립니다.
-    b.addEventListener('mousedown',e=>{ e.preventDefault(); useClient(b.dataset.c) });
-    b.addEventListener('touchstart',e=>{ e.preventDefault(); useClient(b.dataset.c) },{passive:false});
-  });
+  // mousedown 으로 받습니다. click 을 기다리면 그 전에 blur 가 목록을 닫아 버립니다.
+  const grab=(el,fn)=>{
+    el.addEventListener('mousedown',e=>{ e.preventDefault(); fn() });
+    el.addEventListener('touchstart',e=>{ e.preventDefault(); fn() },{passive:false});
+  };
+  box.querySelectorAll('.pickc').forEach(b=>grab(b,()=>useClient(b.dataset.c)));
+  box.querySelectorAll('.star').forEach(b=>grab(b,()=>toggleFav(b.dataset.fav)));
 }
 function hideClientAC(){ const b=$('clientAC'); if(b) b.hidden=true }
 function useClient(c){
@@ -2534,6 +2699,8 @@ const DOC={
 };
 function openDoc(kind){
   const p=curPrj(); if(!p) return;
+  if(kind==='bill' && p.billedOn &&
+     !confirm('이미 청구한 건입니다 ('+shortDay(p.billedOn)+' 발송).\n계속하시겠습니까?')) return;
   docKind = DOC[kind] ? kind : 'invoice';
   invData={maker:makerOf(), p, steps:stepsOf(p.id), list:null};
   $('i-link').hidden = docKind!=='invoice';     // 링크로 보내는 건 명세서뿐입니다
@@ -3004,6 +3171,7 @@ async function afterLogin(){
   paintMe();
   const r=await pull();
   await pullIssuer();
+  await pullFavs();
   if(!r.ok) toast('불러오지 못했습니다: '+String(r.msg||'').slice(0,50));
   paintPerms(); clearNew();
   renderChips(); renderList(); renderQuotes(); paintIssuer();
