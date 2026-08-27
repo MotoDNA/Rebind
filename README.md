@@ -6,7 +6,7 @@
 
 설치 없이 브라우저에서 씁니다. **Re:Call 과 같은 회사 코드·아이디로 들어옵니다.**
 
-**앱 — https://motodna.github.io/Rebind/**
+**앱 — https://rebind.dnalabs.kr/**
 
 ## 하는 일
 

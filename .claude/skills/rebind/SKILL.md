@@ -8,7 +8,7 @@ description: Re:Bind(제본소 공정·거래명세서 앱) 작업을 이어서 
 제본소(BKT)가 쓰는 앱입니다. 공정을 기록하고, 고객사는 링크로 진행도를 보고,
 끝나면 거래명세서·청구서·견적서를 뽑습니다.
 
-**운영** https://motodna.github.io/Rebind/ · **저장소** https://github.com/MotoDNA/Rebind
+**운영** https://rebind.dnalabs.kr/ · **저장소** https://github.com/MotoDNA/Rebind
 
 ## 먼저 읽을 것
 
