@@ -94,6 +94,11 @@ h1.ptitle{font-size:1.6rem;font-weight:800;letter-spacing:-.035em;margin:14px 0 
 textarea.inp{padding:14px;height:auto;min-height:88px;line-height:1.55}
 .inp:focus{outline:none;border-color:var(--blue);background:#fff}
 .inp:disabled{color:var(--mut)}
+/* 사진에서 읽었는데 확실하지 않은 칸 — 눈으로 짚고 넘어가시라고 */
+.inp.check{border-color:var(--amber);background:var(--amber-bg)}
+.readnote{background:var(--amber-bg);color:var(--amber);border-radius:14px;padding:13px 16px;
+  font-size:.84rem;font-weight:600;line-height:1.55;margin-bottom:14px}
+.readnote b{font-weight:800}
 .inp.num{text-align:right;font-variant-numeric:tabular-nums}
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
@@ -493,7 +498,7 @@ nav.tabs button:active{opacity:.6}
   #listBox .prj{margin-bottom:0}
   #boardBox{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start}
   #p-new,#p-set{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start}
-  #p-new>.ptitle,#p-new>.psub,#p-new>#fromQuote,#p-new>.btnrow,
+  #p-new>.ptitle,#p-new>.psub,#p-new>#newTools,#p-new>.btnrow,
   #p-set>.ptitle,#p-set>.psub{grid-column:1/-1}
   #detailBody{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;align-items:start}
   #detailBody>.dhead,#detailBody>.btnrow,#detailBody>.note{grid-column:1/-1}
@@ -638,9 +643,13 @@ nav.tabs button:active{opacity:.6}
     <section class="page" id="p-new" hidden>
       <h1 class="ptitle" id="newTitle">새 프로젝트</h1>
       <p class="psub" id="newSub">굵은 칸만 채우면 시작할 수 있습니다</p>
-      <button class="btn line sm" id="fromQuote" style="width:100%;margin-bottom:14px" hidden>
-        견적서에서 불러오기
-      </button>
+      <div class="btnrow" id="newTools" style="margin:0 0 14px">
+        <button class="btn line sm" id="shootOrder" style="flex:1">
+          <svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>
+          작업의뢰서 촬영
+        </button>
+        <button class="btn line sm" id="fromQuote" style="flex:1" hidden>견적서에서 불러오기</button>
+      </div>
 
       <div class="card">
         <h3>어떤 일인가</h3>
@@ -1315,7 +1324,7 @@ function fromRow(r){
     extras:Array.isArray(r.extra_items)?r.extra_items:[],
     status:r.status||'ready', startedOn:r.started_on||null, dueOn:r.due_on||null, doneOn:r.done_on||null,
     billedOn:r.billed_on||null, taxedOn:r.taxed_on||null, paidOn:r.paid_on||null,
-    photos:r.photos||[], memo:r.memo||'',
+    photos:r.photos||[], orderPhoto:r.order_photo||null, memo:r.memo||'',
     token:r.share_token||null, shareOn:!!r.share_on,
     updatedAt:r.updated_at
   };
@@ -1337,7 +1346,7 @@ function toRow(p){
     extra_items:p.extras||[],
     status:p.status||'ready', started_on:p.startedOn||null, due_on:p.dueOn||null, done_on:p.doneOn||null,
     billed_on:p.billedOn||null, taxed_on:p.taxedOn||null, paid_on:p.paidOn||null,
-    photos:p.photos||[], memo:p.memo||'',
+    photos:p.photos||[], order_photo:p.orderPhoto||null, memo:p.memo||'',
     share_token:p.token||null, share_on:!!p.shareOn,
     deleted:false
   };
@@ -1469,16 +1478,21 @@ $('back').addEventListener('click',closeAllSheets);
    폴더 이름이 곧 접근 권한이라 다른 회사 사진에는 닿지 않습니다. */
 const photoUrls=new Map();      /* 경로 → 한시적 주소. 매번 서명하지 않으려고 담아 둡니다 */
 
-function pickImage(cb){ pickCb=cb; $('filePick').value=''; $('filePick').click() }
+let pickShrink=shrink;
+function pickImage(cb,how){ pickCb=cb; pickShrink=how||shrink; $('filePick').value=''; $('filePick').click() }
 $('filePick').addEventListener('change',async e=>{
   const f=e.target.files&&e.target.files[0];
   if(!f||!pickCb) return;
   const cb=pickCb; pickCb=null;
-  try{ cb(await shrink(f)) }catch(err){ toast('사진을 읽지 못했습니다') }
+  try{ cb(await pickShrink(f)) }catch(err){ toast('사진을 읽지 못했습니다') }
 });
 
 /* 큰 사진을 그대로 올리면 보관함이 금방 찹니다. 긴 변 1600px 로 줄입니다. */
-function shrink(file){
+const shrink = f => shrinkTo(f, 1600, .82);
+/* 작업의뢰서는 표가 촘촘해서 더 크게 남깁니다. 작게 줄이면 숫자가 뭉갭니다. */
+const shrinkDoc = f => shrinkTo(f, 2400, .88);
+
+function shrinkTo(file,max,quality){
   return new Promise((res,rej)=>{
     const fr=new FileReader();
     fr.onerror=()=>rej(new Error('읽기 실패'));
@@ -1486,12 +1500,11 @@ function shrink(file){
       const img=new Image();
       img.onerror=()=>rej(new Error('그림 아님'));
       img.onload=()=>{
-        const max=1600;
         let {width:w,height:h}=img;
         if(w>max||h>max){ const r=Math.min(max/w,max/h); w=Math.round(w*r); h=Math.round(h*r) }
         const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
         cv.getContext('2d').drawImage(img,0,0,w,h);
-        cv.toBlob(b=>b?res(b):rej(new Error('변환 실패')),'image/jpeg',.82);
+        cv.toBlob(b=>b?res(b):rej(new Error('변환 실패')),'image/jpeg',quality);
       };
       img.src=fr.result;
     };
@@ -1789,7 +1802,9 @@ function clearNew(){
   $('n-start').value=todayKey();
   renderOpts([], 'nOptBox');
   hideClientAC();
-  newEditId=null;
+  newEditId=null; orderBlob=null;
+  const rn=$('readNote'); if(rn) rn.remove();
+  document.querySelectorAll('#p-new .inp.check').forEach(el=>el.classList.remove('check'));
   paintNewMode();
 }
 function fillNew(src){
@@ -1849,11 +1864,101 @@ $('n-save').addEventListener('click',async ()=>{
   $('n-save').disabled=false;
   if(!ok) return;
 
+  // 찍어서 만든 건이면 원본 사진을 붙여 둡니다.
+  // 완성본 사진과 따로 둡니다 — 그건 명세서와 고객사 화면에 나가니까요.
+  if(orderBlob && id){
+    try{
+      const path=await uploadPhoto(id,orderBlob);
+      await sb.from('projects').update({order_photo:path}).eq('id',id);
+      const rec=prjs.find(x=>x.id===id); if(rec) rec.orderPhoto=path;
+    }catch(e){ toast('의뢰서 사진은 올리지 못했습니다') }
+  }
+
   const wasQuote = newMode==='quote';
   clearNew(); renderChips(); renderList();
   if(wasQuote){ renderQuotes(); go('quote'); toast('견적서를 저장했습니다') }
   else { go('list'); toast('만들었습니다'); openDetail(id) }
 });
+
+/* ═════════ 작업의뢰서 촬영 → 자동 입력 ═════════
+   찍으면 서버가 사진을 읽어 칸을 채웁니다. 바로 저장하지는 않습니다.
+   양식이 회사마다 다르고, "발주처" 와 "입고처" 처럼 사람은 대번에 아는 것을
+   기계는 헷갈립니다. 그래서 반드시 눈으로 한 번 보고 저장하게 둡니다. */
+let orderBlob=null;          /* 저장할 때 함께 올릴 원본 */
+
+$('shootOrder').addEventListener('click',()=>{
+  pickImage(readOrderPhoto, shrinkDoc);
+});
+
+async function readOrderPhoto(blob){
+  const btn=$('shootOrder');
+  btn.disabled=true; btn.textContent='읽는 중…';
+  try{
+    const {data:{session}}=await sb.auth.getSession();
+    if(!session) throw new Error('로그인이 만료되었습니다');
+    const b64=await blobToB64(blob);
+    const r=await fetch(FN_BASE+'/read-order',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','apikey':SB_KEY,
+               'Authorization':'Bearer '+session.access_token},
+      body:JSON.stringify({image:b64})
+    });
+    const j=await r.json();
+    if(!j.ok) throw new Error(j.error||'읽지 못했습니다');
+    orderBlob=blob;
+    applyOrder(j.order, j.uncertain||[]);
+  }catch(e){
+    toast(String(e.message||e).slice(0,60));
+  }
+  btn.disabled=false;
+  btn.innerHTML='<svg viewBox="0 0 24 24" style="width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round"><path d="M3 8a2 2 0 0 1 2-2h2l1.5-2h7L17 6h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><circle cx="12" cy="12.5" r="3.5"/></svg>다시 찍기';
+}
+function blobToB64(b){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onerror=()=>rej(new Error('사진을 읽지 못했습니다'));
+    fr.onload=()=>res(String(fr.result).split(',')[1]);
+    fr.readAsDataURL(b);
+  });
+}
+
+/* 읽은 값을 칸에 넣습니다. 빈 것은 건드리지 않습니다 —
+   사람이 먼저 적어 둔 것을 사진이 지우면 안 되니까요. */
+function applyOrder(o,uncertain){
+  const KEY={name:'n-name',client:'n-client',person:'n-person',phone:'n-phone',code:'n-code',
+             qty:'n-qty',unit:'n-unit',size:'n-size',pages:'n-pages',color:'n-color',
+             paperCover:'n-paperCover',paperInner:'n-paperInner',bind:'n-bind',finish:'n-finish',
+             dueOn:'n-due',memo:'n-memo'};
+  let filled=0;
+  for(const [k,id] of Object.entries(KEY)){
+    const el=$(id); if(!el) continue;
+    el.classList.remove('check');
+    const v=o[k];
+    if(v===undefined || v===null || v==='' || v===0) continue;
+    el.value=v; filled++;
+    if(uncertain.includes(k)) el.classList.add('check');
+  }
+  if((o.options||[]).length){
+    const cur=readOpts('nOptBox').filter(x=>x.label||x.value);
+    renderOpts(cur.concat(o.options),'nOptBox');
+  }
+  // 안내문
+  const old=$('readNote'); if(old) old.remove();
+  const bad=uncertain.filter(k=>KEY[k]);
+  const koOf={name:'제품명',client:'고객사',person:'담당자',phone:'연락처',code:'발주번호',
+              qty:'수량',unit:'단위',size:'규격',pages:'면수',color:'색상',
+              paperCover:'표지 용지',paperInner:'내지 용지',bind:'제본',finish:'후가공',
+              dueOn:'납기일',memo:'메모'};
+  const div=document.createElement('div');
+  div.id='readNote'; div.className='readnote';
+  div.innerHTML='<b>'+filled+'칸을 채웠습니다.</b> 저장하기 전에 눈으로 한 번 봐 주세요.'+
+    (bad.length?'<br>특히 <b>'+bad.map(k=>esc(koOf[k]||k)).join(' · ')+
+      '</b> 은(는) 확실하지 않습니다 (노란 칸).':'')+
+    '<br>단가는 의뢰서에 없어 직접 넣으셔야 합니다.';
+  $('newTools').after(div);
+  $('n-name').scrollIntoView({block:'center',behavior:'smooth'});
+  toast(filled+'칸을 채웠습니다');
+}
 
 /* ───────── 고객사 자동완성 ─────────
    최근에 일한 업체 다섯 곳을 먼저 보여 주고,
@@ -2228,6 +2333,13 @@ function renderDetail(){
      '<button class="shot add" id="addShot">'+
        '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>사진</button>'+
      '</div><p class="note">명세서와 고객사 화면에 함께 나갑니다.</p></div>';
+
+  /* ── 작업의뢰서 원본 — 찍어서 만든 건에만 ── */
+  if(p.orderPhoto){
+    h+='<div class="card"><h3>작업의뢰서</h3>'+
+       '<img data-path="'+esc(p.orderPhoto)+'" alt="" style="width:100%;border-radius:12px;display:block">'+
+       '<p class="note">받은 원본입니다. 명세서와 고객사 화면에는 나가지 않습니다.</p></div>';
+  }
 
   /* ── 내부 메모 — 관리자만 봅니다 ── */
   if(isAdmin()){
