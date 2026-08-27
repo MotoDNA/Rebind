@@ -1,12 +1,13 @@
 // 브라우저가 이 함수를 부를 수 있는지 정하는 곳입니다.
 //
 // ALLOWED_ORIGIN 에 허용할 주소를 적습니다. 쉼표로 여러 개 적을 수 있습니다.
-//   supabase secrets set ALLOWED_ORIGIN="https://rebind.dnalabs.kr,https://motodna.github.io" \
+//   supabase secrets set ALLOWED_ORIGIN="https://rebind.dnalabs.kr,https://recall.dnalabs.kr" \
 //     --project-ref izrtclsqhsgkuwsffifn
 //
 // ⚠ 이 값은 Re:Call 과 함께 쓰는 하나뿐인 값입니다. 같은 Supabase 프로젝트라
-//   여기서 지운 주소는 Re:Call 함수(read-card · admin-user)에서도 막힙니다.
-//   Re:Call 이 아직 motodna.github.io 에 있으므로 그 주소를 빼면 안 됩니다.
+//   여기서 주소를 지우면 Re:Call 함수(read-card · admin-user)에서도 막힙니다.
+//   그리고 이 값을 바꾸면 네 함수를 모두 다시 배포해야 반영됩니다 —
+//   share-view · read-order (Re:Bind) · read-card · admin-user (Re:Call)
 //     --project-ref izrtclsqhsgkuwsffifn
 //
 // 비워 두면 어디서든 부를 수 있습니다. 설치 중에만 그렇게 두세요.
