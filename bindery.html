@@ -178,6 +178,10 @@ textarea.inp{padding:14px;height:auto;min-height:88px;line-height:1.55}
 .setrow > span{flex:1;font-size:.9rem;font-weight:600}
 .setrow .when{font-size:.82rem;font-weight:700;color:var(--green);font-variant-numeric:tabular-nums}
 .setrow .when.off{color:var(--dim);font-weight:600}
+.setrow .rmar{flex:0 0 auto;width:30px;height:30px;border-radius:9px;color:var(--dim);
+  display:flex;align-items:center;justify-content:center;font-size:.9rem;margin-left:4px}
+.setrow .rmar:active{background:var(--fill)}
+.badge.wait{background:var(--amber-bg);color:var(--amber)}
 .setrow input[type=date]{width:132px;height:38px;padding:0 10px;border:1px solid var(--line);
   border-radius:10px;background:var(--fill2);font-size:.82rem;font-weight:600}
 
@@ -1325,6 +1329,7 @@ function fromRow(r){
     status:r.status||'ready', startedOn:r.started_on||null, dueOn:r.due_on||null, doneOn:r.done_on||null,
     billedOn:r.billed_on||null, taxedOn:r.taxed_on||null, paidOn:r.paid_on||null,
     photos:r.photos||[], orderPhoto:r.order_photo||null, memo:r.memo||'',
+    arrivals:Array.isArray(r.arrivals)?r.arrivals:[],
     token:r.share_token||null, shareOn:!!r.share_on,
     updatedAt:r.updated_at
   };
@@ -1347,6 +1352,7 @@ function toRow(p){
     status:p.status||'ready', started_on:p.startedOn||null, due_on:p.dueOn||null, done_on:p.doneOn||null,
     billed_on:p.billedOn||null, taxed_on:p.taxedOn||null, paid_on:p.paidOn||null,
     photos:p.photos||[], order_photo:p.orderPhoto||null, memo:p.memo||'',
+    arrivals:p.arrivals||[],
     share_token:p.token||null, share_on:!!p.shareOn,
     deleted:false
   };
@@ -1441,6 +1447,29 @@ function unpaidDays(p){
   return Math.max(0, daysBetween(p.doneOn, todayKey())-1);
 }
 
+/* ───────── 자재 입고 ─────────
+   고객사가 인쇄를 마친 종이를 보내 옵니다. 표지·내지·후표지가 따로 오고
+   다 들어와야 공정을 시작합니다. 그래서 공정 카드 위에 놓습니다. */
+const arrivalsOf = p => Array.isArray(p.arrivals) ? p.arrivals : [];
+function arrivalCount(p){
+  const a=arrivalsOf(p);
+  return {in:a.filter(x=>x.on).length, all:a.length};
+}
+const arrivalDone = p => { const c=arrivalCount(p); return c.all>0 && c.in===c.all };
+const arrivalWaiting = p =>
+  p.kind!=='quote' && p.status!=='done' && arrivalCount(p).all>0 && !arrivalDone(p);
+
+/* 적어 둔 사양에서 들어올 것들을 뽑아 옵니다 */
+function suggestArrivals(p){
+  const out=[];
+  if(p.paperCover) out.push({n:'표지 용지', s:p.paperCover, on:null});
+  if(p.paperInner) out.push({n:'내지 용지', s:p.paperInner, on:null});
+  if(!out.length && p.paper) out.push({n:'용지', s:p.paper, on:null});
+  return out;
+}
+/* 제본소에서 자주 따로 들어오는 것들 */
+const ARRIVAL_QUICK=['후표지 용지','면지','띠지','간지','스프링(링)','삼각대','박스','기타 자재'];
+
 function memName(id){
   const m=members.find(x=>x.id===id);
   return m?m.name:(me&&id===me.id?me.name:'');
@@ -1478,13 +1507,15 @@ $('back').addEventListener('click',closeAllSheets);
    폴더 이름이 곧 접근 권한이라 다른 회사 사진에는 닿지 않습니다. */
 const photoUrls=new Map();      /* 경로 → 한시적 주소. 매번 서명하지 않으려고 담아 둡니다 */
 
-let pickShrink=shrink;
-function pickImage(cb,how){ pickCb=cb; pickShrink=how||shrink; $('filePick').value=''; $('filePick').click() }
+/* 어느 크기로 줄일지는 부를 때 정합니다.
+   여기서 shrink 를 바로 가리키면 아직 정의되기 전이라 앱이 뜨다 멈춥니다. */
+let pickShrink=null;
+function pickImage(cb,how){ pickCb=cb; pickShrink=how||null; $('filePick').value=''; $('filePick').click() }
 $('filePick').addEventListener('change',async e=>{
   const f=e.target.files&&e.target.files[0];
   if(!f||!pickCb) return;
   const cb=pickCb; pickCb=null;
-  try{ cb(await pickShrink(f)) }catch(err){ toast('사진을 읽지 못했습니다') }
+  try{ cb(await (pickShrink||shrink)(f)) }catch(err){ toast('사진을 읽지 못했습니다') }
 });
 
 /* 큰 사진을 그대로 올리면 보관함이 금방 찹니다. 긴 변 1600px 로 줄입니다. */
@@ -1613,6 +1644,7 @@ function prjCard(p){
       '<span class="pc">'+pc+'%</span>'+
       '<span>'+(p.qty?money(p.qty)+esc(p.unit):'수량 미정')+'</span>'+
       '<span class="sp"></span>'+
+      (arrivalWaiting(p)?'<span class="badge wait">입고 '+arrivalCount(p).in+'/'+arrivalCount(p).all+'</span>':'')+
       (p.shareOn?'<span class="badge share">공유 중</span>':'')+
       (isAdmin()&&p.kind!=='quote'&&(p.status==='done'||p.billedOn)?settleDots(p):'')+
       '<span>'+due+'</span>'+
@@ -2131,6 +2163,7 @@ function renderBoard(){
      '<dt>보류</dt><dd>'+all.filter(p=>p.status==='hold').length+'건</dd>'+
      '<dt>이번 달 완료</dt><dd>'+all.filter(p=>p.status==='done'&&String(p.doneOn||'').slice(0,7)===todayKey().slice(0,7)).length+'건</dd>'+
      (isAdmin()?'<dt>공유 중</dt><dd>'+all.filter(p=>p.shareOn).length+'건</dd>':'')+
+     '<dt>입고 대기</dt><dd>'+all.filter(arrivalWaiting).length+'건</dd>'+
      (isAdmin()?'<dt>미수금</dt><dd>'+all.filter(isUnpaid).length+'건</dd>':'')+
      '</div></div>';
 
@@ -2144,6 +2177,18 @@ function renderBoard(){
          return boardRow(p, d===null?'—':(d===0?'오늘 납품':d+'일째'));
        }).join('')+'</div>'+
        '<p class="note">납품은 끝났는데 아직 돈이 안 들어온 것입니다. 눌러서 정산 칸을 켜세요.</p></div>';
+  }
+
+  /* 자재가 안 들어와 못 돌리고 있는 것 */
+  const waiting=all.filter(arrivalWaiting)
+    .sort((a,b)=>String(a.dueOn||'9999').localeCompare(String(b.dueOn||'9999')));
+  if(waiting.length){
+    h+='<div class="card"><h3 style="color:var(--amber)">입고 대기 '+waiting.length+'건</h3><div class="glist">'+
+       waiting.map(p=>{
+         const c=arrivalCount(p);
+         return boardRow(p, c.in+' / '+c.all);
+       }).join('')+'</div>'+
+       '<p class="note">고객사가 보낼 종이가 아직 다 안 들어온 것입니다.</p></div>';
   }
 
   if(late.length){
@@ -2244,9 +2289,40 @@ function renderDetail(){
     '</div>'+
   '</div>';
 
+  /* ── 자재 입고 — 공정보다 먼저입니다 ── */
+  if(p.kind!=='quote'){
+    const ar=arrivalsOf(p), cnt=arrivalCount(p);
+    h+='<div class="card"><h3>입고<span class="sp"></span>'+
+       (cnt.all?'<span class="badge '+(arrivalDone(p)?'done':'wait')+'">'+
+          (arrivalDone(p)?'모두 들어옴':cnt.in+' / '+cnt.all)+'</span>':'')+'</h3>';
+    if(!ar.length){
+      h+='<p class="note" style="margin:0 0 12px">고객사가 보내 오는 종이를 여기에 적어 두고, 들어오면 켭니다.</p>'+
+         '<button class="btn line sm" id="arSeed" style="width:100%">사양에서 가져오기</button>';
+    }else{
+      h+=ar.map((a,i)=>
+        '<div class="setrow">'+
+          '<input class="sw" type="checkbox" data-ar="'+i+'"'+(a.on?' checked':'')+' aria-label="'+esc(a.n||'')+'">'+
+          '<span>'+esc(a.n||'자재')+
+            (a.s?'<span style="display:block;font-size:.78rem;color:var(--mut);font-weight:600;margin-top:2px">'+esc(a.s)+'</span>':'')+
+          '</span>'+
+          (a.on ? '<input type="date" data-ard="'+i+'" value="'+esc(a.on)+'">'
+                : '<span class="when off">대기</span>')+
+          '<button class="rmar" data-arx="'+i+'" aria-label="빼기">✕</button>'+
+        '</div>').join('');
+    }
+    h+='<div class="preset" id="arQuick" style="margin:14px 0 0">'+
+       ARRIVAL_QUICK.map(n=>'<button data-arq="'+esc(n)+'">+ '+esc(n)+'</button>').join('')+'</div>';
+    h+='</div>';
+  }
+
   /* ── 공정 타임라인 ── */
   h+='<div class="card"><h3>공정<span class="sp"></span>'+
      '<button class="btn sm line" id="addStep">+ 기록</button></h3>';
+  if(arrivalWaiting(p)){
+    const c=arrivalCount(p);
+    h+='<p class="note" style="color:var(--amber);font-weight:700;margin:-6px 0 12px">'+
+       '아직 안 들어온 자재가 '+(c.all-c.in)+'개 있습니다.</p>';
+  }
   if(!ss.length){
     h+='<p class="note" style="margin:0">인쇄부터 출고까지, 끝난 공정을 한 줄씩 남기면 여기에 쌓입니다.<br>'+
        '고객사는 이 줄만 봅니다.</p>';
@@ -2377,6 +2453,40 @@ function renderDetail(){
   });
   /* 아래는 관리자 화면에만 있습니다 */
   const on=(id,fn)=>{ const el=$(id); if(el) el.addEventListener('click',fn) };
+  /* 입고 */
+  on('arSeed',()=>{
+    const list=suggestArrivals(curPrj());
+    if(!list.length){ toast('사양에 용지가 비어 있습니다. 아래 버튼으로 하나씩 더하세요'); return }
+    savePrj({arrivals:list},true);
+  });
+  $('detailBody').querySelectorAll('[data-arq]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const p=curPrj(); if(!p) return;
+      savePrj({arrivals:[...arrivalsOf(p),{n:b.dataset.arq,s:'',on:null}]},true);
+    });
+  });
+  $('detailBody').querySelectorAll('[data-ar]').forEach(el=>{
+    el.addEventListener('change',()=>{
+      const p=curPrj(); const list=arrivalsOf(p).map(x=>({...x}));
+      const i=num(el.dataset.ar);
+      if(list[i]){ list[i].on = el.checked ? todayKey() : null; savePrj({arrivals:list},true) }
+    });
+  });
+  $('detailBody').querySelectorAll('[data-ard]').forEach(el=>{
+    el.addEventListener('change',()=>{
+      const p=curPrj(); const list=arrivalsOf(p).map(x=>({...x}));
+      const i=num(el.dataset.ard);
+      if(list[i]){ list[i].on = el.value || null; savePrj({arrivals:list},true) }
+    });
+  });
+  $('detailBody').querySelectorAll('[data-arx]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const p=curPrj(); const list=arrivalsOf(p).map(x=>({...x}));
+      list.splice(num(b.dataset.arx),1);
+      savePrj({arrivals:list},true);
+    });
+  });
+
   $('detailBody').querySelectorAll('[data-set]').forEach(el=>{
     el.addEventListener('change',()=>{
       // 켜면 오늘 날짜를 박고, 끄면 비웁니다. 날짜는 옆 칸에서 고칠 수 있습니다.
