@@ -1269,15 +1269,21 @@ async function loadMe(){
   if(!sbInit()) return {ok:false};
   const {data:u}=await sb.auth.getUser();
   if(!u||!u.user) return {ok:false};
+  /* companies 를 그냥 붙이면 "어느 길로 이어진 companies 냐" 를 서버가 못 고릅니다.
+     profiles.company_id 로 바로 이어진 것 말고도, client_favorites(즐겨찾기)가
+     사람과 회사를 함께 물고 있어서 그것도 후보가 되기 때문입니다.
+     그래서 어느 연결인지 이름으로 못 박습니다. 안 그러면 300 이 돌아오고,
+     이 함수가 실패해 로그인 직후 곧바로 튕겨 나갑니다. */
   const {data:p,error}=await sb.from('profiles')
-    .select('id, company_id, login_id, name, role, companies(code,name)')
+    .select('id, company_id, login_id, name, role, companies!profiles_company_id_fkey(code,name)')
     .eq('id',u.user.id).single();
   if(error||!p){
     await sb.auth.signOut();
     return {ok:false,error:'계정 정보를 불러오지 못했습니다. 관리자에게 문의하세요.'};
   }
+  const co = p.companies || p['companies!profiles_company_id_fkey'] || null;
   me={id:p.id,companyId:p.company_id,loginId:p.login_id,name:p.name||p.login_id,role:p.role,
-      companyCode:(p.companies&&p.companies.code)||'',companyName:(p.companies&&p.companies.name)||''};
+      companyCode:(co&&co.code)||'',companyName:(co&&co.name)||''};
   return {ok:true};
 }
 async function signOut(){
