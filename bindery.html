@@ -273,6 +273,7 @@ nav.tabs button:active{opacity:.6}
 .preset button{height:38px;padding:0 13px;border-radius:11px;background:var(--fill);color:var(--sub);
   font-size:.85rem;font-weight:600;display:flex;align-items:center;gap:6px}
 .preset button b{font-size:.74rem;font-weight:800;color:var(--dim)}
+.preset button.undo{background:transparent;border:1px dashed var(--line);color:var(--mut);font-size:.8rem}
 .preset button:active{background:#E8EAED}
 
 .slider{width:100%;height:36px;-webkit-appearance:none;appearance:none;background:transparent;margin:0}
@@ -410,7 +411,13 @@ nav.tabs button:active{opacity:.6}
   #inv .noprint{display:none!important}
   #inv .inner{padding:0!important;max-width:none!important}
   #inv .paperwrap{background:#fff!important;padding:0!important;border-radius:0!important;overflow:visible!important}
-  .paper{width:auto!important;min-height:0!important;padding:0!important;transform:none!important;font-size:11px}
+  /* margin 을 꼭 0 으로 돌려놔야 합니다.
+     화면에서는 A4 도안(794px)을 폰 폭에 맞추려고 transform 으로 줄이고
+     그만큼 음수 여백을 걸어 둡니다(fitPaper). transform 만 풀고 여백을 두면
+     width:auto 가 '종이 폭 + 음수 여백' 으로 계산되어 종이보다 넓어지고,
+     오른쪽 칸(단가·공급가액)과 합계가 종이 밖으로 잘려 나갑니다. */
+  .paper{width:auto!important;max-width:100%!important;min-height:0!important;
+    padding:0!important;transform:none!important;margin:0!important;font-size:11px}
   .paper .items tr,.paper .steps tr{page-break-inside:avoid}
 }
 </style>
@@ -940,20 +947,42 @@ const STATUS={
   done:   {ko:'완료',   cls:'done'},
   hold:   {ko:'보류',   cls:'hold'}
 };
-/* 제본소에서 흔한 순서입니다. 눌러서 채우고, 이름과 %는 마음대로 고칩니다. */
-const PRESET=[
-  ['파일 입고 · 검수', 5],
-  ['출력 · 교정',     12],
-  ['인쇄',            32],
-  ['코팅',            45],
-  ['접지',            55],
-  ['정합',            65],
-  ['제본',            80],
-  ['재단',            88],
-  ['검수',            94],
-  ['포장',            97],
-  ['출고 · 납품',    100]
-];
+/* 처음 쓰는 회사에 보여 줄 이름들입니다. %는 붙이지 않습니다.
+   프로젝트마다 공정 순서가 달라서, 숫자를 못 박아 두면 오히려 방해가 됩니다.
+   기록이 한 번이라도 쌓이면 그때부터는 실제로 쓴 이름이 앞으로 나옵니다. */
+const STEP_SEED=['파일 입고 · 검수','인쇄','코팅','접지','정합','제본','재단','타공','검수','포장','출고 · 납품'];
+
+/* 자주 쓰는 목록에서 뺀 이름 — 이 기기에만 둡니다.
+   남이 쓰는 화면까지 바꿀 일은 아니고, 이미 남긴 기록과도 상관없습니다. */
+const HIDE_KEY='rebind-hide';
+function hiddenSteps(){ try{ return JSON.parse(localStorage.getItem(HIDE_KEY)||'[]') }catch(e){ return [] } }
+function hideStep(n){
+  const h=hiddenSteps();
+  if(!h.includes(n)){ h.push(n); try{ localStorage.setItem(HIDE_KEY,JSON.stringify(h)) }catch(e){} }
+}
+function unhideSteps(){ try{ localStorage.removeItem(HIDE_KEY) }catch(e){} }
+
+/* 자주 쓰는 공정 —
+   우리가 실제로 남긴 기록에서 이름을 세어 많이 쓴 순으로 올립니다.
+   같은 횟수면 최근에 쓴 것이 앞에 옵니다. */
+function stepSuggestions(skip){
+  const cnt=new Map();
+  for(const s of allSteps){
+    const n=(s.name||'').trim(); if(!n) continue;
+    const c=cnt.get(n) || {n, k:0, at:''};
+    c.k++; if(s.at > c.at) c.at=s.at;
+    cnt.set(n,c);
+  }
+  const list=[...cnt.values()]
+    .sort((a,b)=> b.k-a.k || String(b.at).localeCompare(String(a.at)))
+    .map(c=>c.n);
+  // 쓸 만큼 쌓였으면 기본 이름은 그만 보탭니다.
+  // 안 그러면 '타공'과 '타공 (펀칭)' 처럼 비슷한 것이 나란히 서서 지저분해집니다.
+  if(list.length < 8) for(const n of STEP_SEED) if(!list.includes(n)) list.push(n);
+  const hide=new Set(hiddenSteps());
+  const used=skip || new Set();
+  return list.filter(n=>!hide.has(n) && !used.has(n)).slice(0,12);
+}
 
 /* ───────── 상태 ───────── */
 let me=null, sb=null;
@@ -1602,14 +1631,53 @@ function openStep(stepId){
   setPc(s?s.percent:progressOf(p.id));
   $('st-del').hidden=!s;
 
-  /* 아직 안 지난 공정만 눌러서 채우도록 둡니다 */
-  const done=new Set(stepsOf(p.id).map(x=>x.name));
-  $('stepPreset').innerHTML=PRESET.filter(([n])=>s?true:!done.has(n))
-    .map(([n,v])=>'<button data-n="'+esc(n)+'" data-v="'+v+'">'+esc(n)+'<b>'+v+'%</b></button>').join('');
-  $('stepPreset').querySelectorAll('button').forEach(b=>{
-    b.addEventListener('click',()=>{ $('st-name').value=b.dataset.n; setPc(num(b.dataset.v)) });
-  });
+  paintStepChips();
   openSheetEl('sheetStep');
+}
+
+/* 자주 쓰는 공정 버튼.
+   누르면 공정명 칸만 채웁니다. %는 손대지 않습니다 — 그건 매번 다르니까요.
+   길게 누르면 그 이름을 목록에서 뺍니다. */
+function paintStepChips(){
+  const p=curPrj(); if(!p) return;
+  // 이 프로젝트에 이미 남긴 공정은 빼 둡니다 (고치는 중일 때는 다 보여 줍니다)
+  const used = stepEditId ? new Set() : new Set(stepsOf(p.id).map(x=>x.name));
+  const hid  = hiddenSteps().length;
+  $('stepPreset').innerHTML =
+    stepSuggestions(used).map(n=>'<button data-n="'+esc(n)+'">'+esc(n)+'</button>').join('') +
+    (hid ? '<button class="undo" data-undo="1">숨긴 공정 '+hid+'개 되살리기</button>' : '');
+  $('stepPreset').querySelectorAll('button').forEach(b=>{
+    if(b.dataset.undo){
+      b.addEventListener('click',()=>{ unhideSteps(); paintStepChips(); toast('되살렸습니다') });
+    }else{
+      bindStepChip(b);
+    }
+  });
+}
+
+function bindStepChip(b){
+  let timer=null, long=false, x0=0, y0=0;
+  const cancel=()=>{ clearTimeout(timer); timer=null };
+  b.addEventListener('pointerdown', e=>{
+    long=false; x0=e.clientX; y0=e.clientY;
+    cancel();
+    timer=setTimeout(()=>{ long=true; askHideStep(b.dataset.n) }, 550);
+  });
+  // 손가락이 조금 움직이는 것은 봐주고, 스크롤로 볼 만큼 움직이면 취소합니다
+  b.addEventListener('pointermove', e=>{
+    if(timer && (Math.abs(e.clientX-x0)>10 || Math.abs(e.clientY-y0)>10)) cancel();
+  });
+  ['pointerup','pointerleave','pointercancel'].forEach(k=>b.addEventListener(k,cancel));
+  b.addEventListener('contextmenu', e=>{ e.preventDefault(); cancel(); long=true; askHideStep(b.dataset.n) });
+  b.addEventListener('click', e=>{
+    if(long){ long=false; e.preventDefault(); return }   // 길게 누른 뒤 떼는 것은 누른 것이 아닙니다
+    $('st-name').value=b.dataset.n;
+  });
+}
+function askHideStep(n){
+  if(!n) return;
+  if(!confirm('"'+n+'" 을 자주 쓰는 공정에서 뺄까요?\n\n이미 남긴 기록은 그대로 있습니다.\n이 기기에서만 안 보이게 됩니다.')) return;
+  hideStep(n); paintStepChips(); toast('뺐습니다');
 }
 function setPc(v){
   v=Math.max(0,Math.min(100,Math.round(num(v))));
@@ -2061,12 +2129,12 @@ function paperHTML(mk,p,steps){
    따로 만들지 않는 이유: 한글 글꼴이 깨지지 않고, A4 여백을 브라우저가 맞춰 줍니다. */
 $('i-pdf').addEventListener('click',async ()=>{
   const el=$('paper');
-  const prev=el.style.transform;
-  el.style.transform='none';                 // 인쇄할 때는 줄이지 않습니다
+  // 줄여 놓은 것과 그에 딸린 음수 여백을 함께 풉니다. 여백을 남기면 종이보다 넓어집니다.
+  el.style.transform='none'; el.style.margin='0';
   await fillPhotos(el);
   setTimeout(()=>{
     window.print();
-    setTimeout(()=>{ el.style.transform=prev; fitPaper() },400);
+    setTimeout(fitPaper,400);                // 화면은 다시 폰 폭에 맞춥니다
   },120);
 });
 $('i-link').addEventListener('click',()=>{ closeInvoice(); openShare() });
