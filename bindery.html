@@ -88,6 +88,15 @@ h1.ptitle{font-size:1.6rem;font-weight:800;letter-spacing:-.035em;margin:14px 0 
 .card h3{font-size:1rem;font-weight:800;letter-spacing:-.03em;margin:0 0 14px;display:flex;align-items:center;gap:8px}
 .card h3 .sp{flex:1}
 .field{margin-bottom:14px}
+/* 비밀번호를 눈으로 볼 수 있게 하는 작은 글자 단추.
+   점으로만 보이면 대문자로 들어간 것을 알 길이 없습니다 — 실제로 그래서
+   백업 관리자 계정이 적어 둔 것과 다른 비밀번호로 만들어졌습니다.
+   입력칸에만 붙입니다. 칸 전체에 붙이면 아래 안내문과 겹칩니다. */
+.pwwrap{position:relative;display:block}
+.pwwrap .inp,.pwwrap input{padding-right:62px}
+.pwsee{position:absolute;right:12px;top:0;height:52px;padding:0 4px;border:0;background:none;
+  font-size:.8rem;font-weight:700;color:var(--mut);font-family:inherit}
+.pwsee:active{color:var(--ink)}
 .field:last-child{margin-bottom:0}
 .field label{display:block;font-size:.8rem;font-weight:700;color:var(--sub);margin:0 0 7px;padding-left:2px}
 .inp{
@@ -607,7 +616,7 @@ nav.tabs button:active{opacity:.6}
       </div>
       <div class="field">
         <label for="g-pw">비밀번호</label>
-        <input id="g-pw" name="password" type="password" placeholder="비밀번호" autocomplete="current-password">
+        <input id="g-pw" name="password" type="password" placeholder="비밀번호" autocapitalize="none" autocorrect="off" autocomplete="current-password" spellcheck="false">
       </div>
       <button class="btn" id="g-go" type="submit">들어가기</button>
     </form>
@@ -1105,12 +1114,12 @@ nav.tabs button:active{opacity:.6}
     이 기기에서도 다시 들어오셔야 합니다.</p>
   <div class="field">
     <label for="mp-pw">새 비밀번호</label>
-    <input id="mp-pw" class="inp" type="password" autocomplete="new-password">
+    <input id="mp-pw" class="inp" type="password" autocapitalize="none" autocorrect="off" autocomplete="new-password" spellcheck="false">
     <p class="pwhint" id="mp-pwHint"></p>
   </div>
   <div class="field">
     <label for="mp-pw2">새 비밀번호 확인</label>
-    <input id="mp-pw2" class="inp" type="password" autocomplete="new-password">
+    <input id="mp-pw2" class="inp" type="password" autocapitalize="none" autocorrect="off" autocomplete="new-password" spellcheck="false">
     <p class="pwhint" id="mp-pw2Hint"></p>
   </div>
   <p class="note" id="mpStat" hidden style="margin-top:14px"></p>
@@ -1139,12 +1148,12 @@ nav.tabs button:active{opacity:.6}
     </div>
     <div class="field">
       <label for="u-pw">비밀번호</label>
-      <input id="u-pw" class="inp" type="password" autocomplete="new-password">
+      <input id="u-pw" class="inp" type="password" autocapitalize="none" autocorrect="off" autocomplete="new-password" spellcheck="false">
       <p class="pwhint" id="u-pwHint"></p>
     </div>
     <div class="field">
       <label for="u-pw2">비밀번호 확인</label>
-      <input id="u-pw2" class="inp" type="password" autocomplete="new-password">
+      <input id="u-pw2" class="inp" type="password" autocapitalize="none" autocorrect="off" autocomplete="new-password" spellcheck="false">
       <p class="pwhint" id="u-pw2Hint"></p>
     </div>
     <div class="setrow">
@@ -1159,7 +1168,7 @@ nav.tabs button:active{opacity:.6}
     <p class="note" id="userWho" style="margin:0 0 14px"></p>
     <div class="field">
       <label for="u-newpw">새 비밀번호</label>
-      <input id="u-newpw" class="inp" type="password" autocomplete="new-password">
+      <input id="u-newpw" class="inp" type="password" autocapitalize="none" autocorrect="off" autocomplete="new-password" spellcheck="false">
       <p class="pwhint" id="u-newpwHint"></p>
     </div>
     <button class="btn line" id="u-reset" style="width:100%">비밀번호 재발급</button>
@@ -3962,6 +3971,28 @@ $('mp-save').addEventListener('click',async ()=>{
   closeSheetEl('sheetMyPw');
   toast('바꿨습니다. 새 비밀번호로 다시 들어와 주세요');
   setTimeout(signOut, 1200);
+});
+
+/* 비밀번호 칸마다 "보기" 를 답니다.
+   점으로만 보이면 무엇을 쳤는지 알 수 없습니다. 대문자로 들어가 있어도,
+   자판이 한글로 되어 있어도 모릅니다. 눈으로 한 번 보고 넘어가는 편이 낫습니다. */
+document.querySelectorAll('input[type=password]').forEach(inp=>{
+  if(inp.parentElement && inp.parentElement.classList.contains('pwwrap')) return;
+  // 입력칸만 감싸서 그 안에 단추를 넣습니다
+  const wrap=document.createElement('span');
+  wrap.className='pwwrap';
+  inp.parentNode.insertBefore(wrap, inp);
+  wrap.appendChild(inp);
+  const b=document.createElement('button');
+  b.type='button'; b.className='pwsee'; b.textContent='보기';
+  b.setAttribute('aria-label','비밀번호 보기');
+  b.addEventListener('click',()=>{
+    const 보이는중 = inp.type==='text';
+    inp.type = 보이는중 ? 'password' : 'text';
+    b.textContent = 보이는중 ? '보기' : '숨기기';
+    inp.focus();
+  });
+  wrap.appendChild(b);
 });
 
 $('s-out').addEventListener('click',()=>{ if(confirm('로그아웃할까요?')) signOut() });
