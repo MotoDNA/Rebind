@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
       .eq('project_id', p.id).eq('deleted', false)
       .order('at', { ascending: true }).order('created_at', { ascending: true }),
     admin.from('companies').select('name').eq('id', p.company_id).maybeSingle(),
-    admin.from('company_settings').select('biz_no, ceo, addr, biz_type, biz_item, tel, fax, bank, note')
+    admin.from('company_settings').select('biz_no, ceo, addr, biz_type, biz_item, tel, fax, bank, note, preset')
       .eq('company_id', p.company_id).maybeSingle(),
     admin.from('profiles').select('name').eq('id', p.owner_id).maybeSingle(),
     admin.from('project_money').select('unit_price, vat_rate, extra_items')
@@ -98,6 +98,9 @@ Deno.serve(async (req) => {
       bizNo: cs?.biz_no ?? '', ceo: cs?.ceo ?? '', addr: cs?.addr ?? '',
       bizType: cs?.biz_type ?? '', bizItem: cs?.biz_item ?? '',
       tel: cs?.tel ?? '', fax: cs?.fax ?? '', bank: cs?.bank ?? '', note: cs?.note ?? '',
+      // 이 회사가 쓰는 말(면수·표지 용지·제본 방식…). 고객사 화면과 거래명세서가
+      // 만드는 쪽과 같은 이름표를 쓰도록 함께 내려 줍니다. 비면 앱이 제본소 기본값을 씁니다.
+      preset: cs?.preset ?? {},
     },
     project: {
       name: p.name, code: p.code,

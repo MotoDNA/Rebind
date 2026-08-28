@@ -19,10 +19,17 @@ const MAX_BYTES = 8 * 1024 * 1024;
 
 const admin = createClient(URL_, SERVICE, { auth: { persistSession: false } });
 
-// 제본소 작업의뢰서는 회사마다 양식이 다릅니다.
+// 작업의뢰서는 회사마다 양식이 다릅니다.
 // 칸 위치로 찾지 않고 "무슨 뜻의 칸인지"로 찾게 합니다.
-const PROMPT = [
-  '제본소가 받은 작업의뢰서(작업지시서) 사진입니다. 표를 읽어 아래 항목을 뽑아 주세요.',
+//
+// us  = 우리 회사를 가리키는 말들 (상호 · 회사코드). 의뢰서에 이 이름이 적힌 줄은
+//       우리에게 시킨 일이고, 고객사(client)가 아닙니다. 예전에는 "BKT"가 이 파일에
+//       박혀 있어서, 다른 회사가 쓰면 자기 상호를 고객사로 읽어 버렸습니다.
+// trade = 업종 이름. 없으면 '제본소'.
+function buildPrompt(us: string[], trade: string): string {
+  const WE = us.length ? us.map((n) => '"' + n + '"').join(' · ') : '우리 회사 이름';
+  return [
+  trade + '가(이) 받은 작업의뢰서(작업지시서) 사진입니다. 표를 읽어 아래 항목을 뽑아 주세요.',
   '회사마다 양식이 달라서 칸 이름이 제각각입니다. 뜻이 같으면 같은 항목으로 넣으세요.',
   '',
   '- name : 만들 것의 이름. "제품명 · 품명 · 제목 · 건명" 중 있는 것',
@@ -34,7 +41,7 @@ const PROMPT = [
   '              분명하지 않으면 비우고 uncertain 에 client 를 적으세요.',
   '           ※ 다음 공장 이름은 client 가 아닙니다 —',
   '              입고처 · 출고처 · 납품업체 · 물류 · 지업사 · 제지사 · 인쇄사 · 인쇄소 · 제책사.',
-  '           ※ "BKT · 비케이티 · bkt" 는 우리 자신입니다. 절대 client 가 아닙니다.',
+  '           ※ ' + WE + ' 는 우리 자신입니다. 절대 client 가 아닙니다.',
   '- person : 담당자 이름. 발주처(client) 쪽 담당자만.',
   '           입고처 · 물류 · 제책사 옆에 적힌 담당자는 넣지 마세요.',
   '- phone : 그 담당자의 연락처. 숫자와 하이픈만',
@@ -60,7 +67,7 @@ const PROMPT = [
   '         ※ 구멍만 뚫는 일(타공 · 육공 · 6공 · 3공)은 스프링제본이 아닙니다.',
   '            링을 끼운다는 말이 없으면 "6공 타공" 처럼 타공이라고만 적으세요.',
   '         ※ 제본 업체가 여러 줄이면(1차 제책사 따로, 스프링 업체 따로)',
-  '            "BKT · 비케이티 · bkt" 라고 적힌 줄의 지시만 봅니다. 다른 줄은 남의 일입니다.',
+  '            ' + WE + ' 라고 적힌 줄의 지시만 봅니다. 다른 줄은 남의 일입니다.',
   '- finish : 후가공. 코팅 · 라미네이팅 · 박 · 귀도리 · 삼각대 · 바니쉬 · 톰슨 등. 여러 개면 " · " 로 이어서',
   '- dueOn : 납품일. "납품 · 납기 · 입고예정 · 출고일". YYYY-MM-DD.',
   '          ※ 발주일 · 발주일자 · 인쇄완료일은 납품일이 아닙니다.',
@@ -94,7 +101,8 @@ const PROMPT = [
   '{"name":"","client":"","person":"","phone":"","code":"","qty":0,"unit":"부","size":"",',
   ' "pages":0,"color":"","paperCover":"","paperInner":"","bind":"","finish":"","dueOn":"",',
   ' "options":[],"memo":"","uncertain":[]}',
-].join('\n');
+  ].join('\n');
+}
 
 Deno.serve(async (req) => {
   const { cors, json } = mkJson(req);
@@ -117,6 +125,16 @@ Deno.serve(async (req) => {
   const { data: prof } = await admin.from('profiles')
     .select('id, company_id, disabled').eq('id', udata.user.id).single();
   if (!prof || prof.disabled) return json({ ok: false, error: '사용할 수 없는 계정입니다.' }, 403);
+
+  // 우리 회사가 누구인지 — 의뢰서에서 우리 상호를 고객사로 잘못 읽지 않게 합니다.
+  const [{ data: co }, { data: cs }] = await Promise.all([
+    admin.from('companies').select('name, code').eq('id', prof.company_id).maybeSingle(),
+    admin.from('company_settings').select('trade').eq('company_id', prof.company_id).maybeSingle(),
+  ]);
+  // 회사코드는 대문자로 두지만 의뢰서에는 소문자로 적히기도 합니다.
+  const us = [...new Set([co?.name ?? '', co?.code ?? '', (co?.code ?? '').toLowerCase()]
+    .map((x) => x.trim()).filter(Boolean))];
+  const prompt = buildPrompt(us, (cs?.trade ?? '').trim() || '제본소');
 
   // ── 하루 한도 ── (키가 새어도 피해가 한정되도록)
   const since = new Date(Date.now() - 86400000).toISOString();
@@ -147,7 +165,7 @@ Deno.serve(async (req) => {
           role: 'user',
           content: [
             { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: b64 } },
-            { type: 'text', text: PROMPT },
+            { type: 'text', text: prompt },
           ],
         }],
       }),
