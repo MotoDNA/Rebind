@@ -820,6 +820,7 @@ nav.tabs button:active{opacity:.6}
           <dt>권한</dt><dd id="me-role">—</dd>
         </div>
         <div class="btnrow">
+          <button class="btn line sm" id="s-pw" style="flex:1">비밀번호 바꾸기</button>
           <button class="btn ghost sm" id="s-out" style="flex:1">로그아웃</button>
         </div>
       </div>
@@ -1096,6 +1097,29 @@ nav.tabs button:active{opacity:.6}
 </div>
 
 <!-- ───── 견적서 고르기 ───── -->
+<!-- ───── 내 비밀번호 바꾸기 ───── -->
+<div class="sheet" id="sheetMyPw" hidden>
+  <div class="grab"></div>
+  <h3>비밀번호 바꾸기</h3>
+  <p class="note" style="margin:0 0 14px">바꾸면 <b>지금 열려 있는 로그인이 모두 끊깁니다.</b>
+    이 기기에서도 다시 들어오셔야 합니다.</p>
+  <div class="field">
+    <label for="mp-pw">새 비밀번호</label>
+    <input id="mp-pw" class="inp" type="password" autocomplete="new-password">
+    <p class="pwhint" id="mp-pwHint"></p>
+  </div>
+  <div class="field">
+    <label for="mp-pw2">새 비밀번호 확인</label>
+    <input id="mp-pw2" class="inp" type="password" autocomplete="new-password">
+    <p class="pwhint" id="mp-pw2Hint"></p>
+  </div>
+  <p class="note" id="mpStat" hidden style="margin-top:14px"></p>
+  <div class="btnrow" style="margin-top:16px">
+    <button class="btn ghost" id="mp-cancel" type="button">닫기</button>
+    <button class="btn" id="mp-save" type="button">바꾸기</button>
+  </div>
+</div>
+
 <!-- ───── 직원 계정 (관리자만) ───── -->
 <div class="sheet" id="sheetUser" hidden>
   <div class="grab"></div>
@@ -1490,26 +1514,60 @@ function fromRow(r, m){
     updatedAt:r.updated_at
   };
 }
+/* 우리 이름 → 데이터베이스 칸 이름, 그리고 담을 값 만드는 법.
+   toRow(줄 전체)와 toRowPatch(바뀐 칸만)가 이 하나를 같이 봅니다.
+   따로 두면 한쪽만 고쳐 놓고 다른 쪽이 옛 이름을 쓰는 일이 생깁니다. */
+const PRJ_COL = {
+  owner:      ['owner_id',          p=>p.owner||me.id],
+  shared:     ['shared_ids',        p=>(p.shared||[]).filter(Boolean)],
+  customerId: ['customer_id',       p=>p.customerId||null],
+  name:       ['name',              p=>p.name||''],
+  code:       ['code',              p=>p.code||''],
+  client:     ['client_company',    p=>p.client||''],
+  person:     ['client_person',     p=>p.person||''],
+  phone:      ['client_phone',      p=>p.phone||''],
+  email:      ['client_email',      p=>p.email||''],
+  qty:        ['qty',               p=>Math.max(0,Math.round(num(p.qty)))],
+  unit:       ['unit',              p=>p.unit||'부'],
+  size:       ['spec_size',         p=>p.size||''],
+  pages:      ['spec_pages',        p=>p.pages?Math.round(num(p.pages)):null],
+  color:      ['spec_color',        p=>p.color||''],
+  paper:      ['spec_paper',        p=>p.paper||''],
+  paperCover: ['spec_paper_cover',  p=>p.paperCover||''],
+  paperInner: ['spec_paper_inner',  p=>p.paperInner||''],
+  bind:       ['spec_bind',         p=>p.bind||''],
+  finish:     ['spec_finish',       p=>p.finish||''],
+  kind:       ['kind',              p=>p.kind||'project'],
+  quoteOf:    ['quote_of',          p=>p.quoteOf||null],
+  options:    ['options',           p=>p.options||[]],
+  status:     ['status',            p=>p.status||'ready'],
+  startedOn:  ['started_on',        p=>p.startedOn||null],
+  dueOn:      ['due_on',            p=>p.dueOn||null],
+  doneOn:     ['done_on',           p=>p.doneOn||null],
+  photos:     ['photos',            p=>p.photos||[]],
+  orderPhoto: ['order_photo',       p=>p.orderPhoto||null],
+  arrivals:   ['arrivals',          p=>p.arrivals||[]],
+  token:      ['share_token',       p=>p.token||null],
+  shareOn:    ['share_on',          p=>!!p.shareOn],
+};
+/* 금액 표로 가는 이름들. projects 로 보내면 안 됩니다. */
+const MONEY_KEYS = ['price','vat','extras','billedOn','taxedOn','paidOn','memo'];
+
 function toRow(p){
-  return {
-    id:p.id, company_id:me.companyId, owner_id:p.owner||me.id,
-    shared_ids:(p.shared||[]).filter(Boolean), customer_id:p.customerId||null,
-    name:p.name||'', code:p.code||'',
-    client_company:p.client||'', client_person:p.person||'',
-    client_phone:p.phone||'', client_email:p.email||'',
-    qty:Math.max(0,Math.round(num(p.qty))), unit:p.unit||'부',
-    spec_size:p.size||'', spec_pages:p.pages?Math.round(num(p.pages)):null, spec_color:p.color||'',
-    spec_paper:p.paper||'', spec_paper_cover:p.paperCover||'', spec_paper_inner:p.paperInner||'',
-    spec_bind:p.bind||'', spec_finish:p.finish||'',
-    kind:p.kind||'project', quote_of:p.quoteOf||null,
-    options:p.options||[],
-    /* 금액·정산일·내부메모는 여기에 없습니다. toMoneyRow 로 갑니다. */
-    status:p.status||'ready', started_on:p.startedOn||null, due_on:p.dueOn||null, done_on:p.doneOn||null,
-    photos:p.photos||[], order_photo:p.orderPhoto||null,
-    arrivals:p.arrivals||[],
-    share_token:p.token||null, share_on:!!p.shareOn,
-    deleted:false
-  };
+  const r={ id:p.id, company_id:me.companyId, deleted:false };
+  for(const k in PRJ_COL) r[PRJ_COL[k][0]] = PRJ_COL[k][1](p);
+  return r;
+}
+/* 바뀐 칸만 골라 담습니다.
+   줄 전체를 보내면, 내 화면이 들고 있는 옛 값이 그 사이 남이 고쳐 놓은 것을
+   되돌립니다. 두 사람이 같은 프로젝트를 열어 두는 일이 흔해서 실제로 납니다. */
+function toRowPatch(patch, merged){
+  const r={};
+  for(const k in patch){
+    const m=PRJ_COL[k];
+    if(m) r[m[0]] = m[1](merged);
+  }
+  return r;
 }
 /* ───────── 금액은 딴 표에 씁니다 ─────────
    projects 는 회사 사람 누구나 읽고 고칠 수 있습니다. 금액을 거기 두면
@@ -1744,7 +1802,7 @@ window.addEventListener('popstate',()=>{
 
 /* ═════════ 바텀시트 · 화면 잠금 ═════════ */
 const SHEET_IDS=['sheetStep','sheetSpec','sheetMoney','sheetShare','sheetMore','sheetQuotePick',
-                 'sheetSettle','sheetPick','sheetSend','sheetUser'];
+                 'sheetSettle','sheetPick','sheetSend','sheetUser','sheetMyPw'];
 function anySheetOpen(except){
   return SHEET_IDS.some(id=>id!==except && $(id) && !$(id).hidden);
 }
@@ -2539,14 +2597,27 @@ function boardRow(p,tail){
 function curPrj(){ return prjs.find(p=>p.id===curId) }
 
 /* 한 곳에서만 고칩니다 — 서버에 먼저 보내고, 성공했을 때만 화면 값을 바꿉니다. */
+/* 한 곳에서만 고칩니다 — 서버에 먼저 보내고, 성공했을 때만 화면 값을 바꿉니다.
+   보내는 것은 **바뀐 칸뿐**입니다. 전에는 줄 전체를 보냈는데, 그러면 내가 상세를
+   열어 둔 사이 남이 상태를 바꿔 놓아도 내가 입고 하나만 켜면 그 변경이
+   되돌아갔습니다. 이제 서로 다른 칸을 고치는 두 사람은 부딪히지 않습니다. */
 async function savePrj(patch,quiet){
   const p=curPrj(); if(!p) return false;
   const merged={...p,...patch};
-  const row=toRow(merged); delete row.company_id;      // 회사는 옮기지 않습니다
-  const {error}=await sb.from('projects').update(row).eq('id',p.id);
-  if(error){ toast('저장하지 못했습니다: '+String(error.message).slice(0,50)); return false }
-  if(!await saveMoney(merged)) return false;
-  Object.assign(p,patch); p.updatedAt=new Date().toISOString();
+  const row=toRowPatch(patch, merged);
+  if(Object.keys(row).length){
+    const {data,error}=await sb.from('projects').update(row).eq('id',p.id).select('updated_at');
+    if(error){ toast('저장하지 못했습니다: '+String(error.message).slice(0,50)); return false }
+    // 서버가 찍어 준 시각을 그대로 받아 둡니다. 우리가 지어내면 실제와 어긋납니다.
+    if(data && data[0]) merged.updatedAt=data[0].updated_at;
+  }
+  // 금액 표는 금액이 바뀐 때만 건드립니다. 입고를 켤 때마다 금액을 다시 쓸 이유가 없고,
+  // 직원은 어차피 그 표를 못 씁니다.
+  if(MONEY_KEYS.some(k=>k in patch)){
+    if(!await saveMoney(merged)) return false;
+  }
+  Object.assign(p,patch);
+  if(merged.updatedAt) p.updatedAt=merged.updatedAt;
   if(!quiet) toast('저장했습니다');
   renderChips(); renderList(); renderDetail();
   return true;
@@ -3854,6 +3925,44 @@ for(const [el,col] of VIS_FIELDS){
     toast(on?'직원에게 보입니다':'직원에게 감췄습니다');
   });
 }
+
+/* 내 비밀번호 바꾸기 —
+   팀원 목록에서는 자기 줄을 못 누르게 해 두었습니다(실수로 스스로를 잠그지
+   않으려고). 그래서 자기 비밀번호를 바꿀 길이 여기밖에 없습니다. */
+$('mp-pw').addEventListener('input',()=>{ pwPaint('mp-pw','mp-pwHint'); mpMatch() });
+$('mp-pw2').addEventListener('input',mpMatch);
+function mpMatch(){
+  const a=$('mp-pw').value, b=$('mp-pw2').value, el=$('mp-pw2Hint');
+  if(!b){ el.className='pwhint'; el.textContent=''; return }
+  el.className='pwhint '+(a===b?'ok':'bad');
+  el.textContent=a===b?'위와 같습니다':'위와 다릅니다';
+}
+function mpStat(kind,html){
+  const el=$('mpStat');
+  if(!html){ el.hidden=true; return }
+  el.hidden=false; el.className='note'+(kind==='err'?' bad':''); el.innerHTML=html;
+}
+$('s-pw').addEventListener('click',()=>{
+  $('mp-pw').value=''; $('mp-pw2').value='';
+  $('mp-pwHint').className='pwhint'; $('mp-pwHint').innerHTML=PW_GUIDE;
+  $('mp-pw2Hint').className='pwhint'; $('mp-pw2Hint').textContent='';
+  mpStat('',''); $('mp-save').disabled=false;
+  openSheetEl('sheetMyPw');
+});
+$('mp-cancel').addEventListener('click',()=>closeSheetEl('sheetMyPw'));
+$('mp-save').addEventListener('click',async ()=>{
+  const pw=$('mp-pw').value, pw2=$('mp-pw2').value;
+  const bad=pwProblem(pw);
+  if(bad){ mpStat('err','비밀번호는 '+bad+'.'); return }
+  if(pw!==pw2){ mpStat('err','비밀번호가 서로 다릅니다.'); return }
+  if(!confirm('비밀번호를 바꿉니다.\n지금 열려 있는 로그인이 모두 끊기고, 다시 들어오셔야 합니다.')) return;
+  $('mp-save').disabled=true; mpStat('','바꾸는 중…');
+  const d=await adminCall({action:'reset-password',loginId:me.loginId,password:pw});
+  if(!d.ok){ $('mp-save').disabled=false; mpStat('err',d.error||'바꾸지 못했습니다.'); return }
+  closeSheetEl('sheetMyPw');
+  toast('바꿨습니다. 새 비밀번호로 다시 들어와 주세요');
+  setTimeout(signOut, 1200);
+});
 
 $('s-out').addEventListener('click',()=>{ if(confirm('로그아웃할까요?')) signOut() });
 
