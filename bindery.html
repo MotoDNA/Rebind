@@ -825,7 +825,7 @@ nav.tabs button:active{opacity:.6}
       </div>
 
       <div class="card">
-        <h3>팀원 <span class="sp"></span><span class="badge" id="memWho">관리자만</span></h3>
+        <h3>팀원</h3>
         <div class="glist" id="memList"></div>
         <p class="note" id="memNote" style="margin-top:12px"></p>
         <button class="btn line" id="s-addUser" hidden style="width:100%;margin-top:10px">직원 계정 추가</button>
@@ -1724,14 +1724,15 @@ function topLayer(){
   if(selMode) return ()=>setSelMode(false);
   return null;
 }
-/* 앱 안의 버튼으로 닫아서 남은 것이 없어지면, 세워 둔 방어막도 거둡니다.
-   안 거두면 다음 뒤로가기 한 번이 그것을 소모하느라 헛돕니다. */
-function disarmIfDone(){
-  if(inPopstate || !backArmed) return;
-  if(topLayer()) return;
-  backArmed=false;
-  try{ history.back() }catch(e){}
-}
+/* 앱 안의 버튼으로 닫았을 때는 세워 둔 방어막을 그냥 둡니다.
+   전에는 여기서 history.back() 을 불러 방어막을 거뒀습니다. 뒤로가기
+   한 번이 헛도는 것을 아끼려던 것인데, **앱이 스스로 뒤로 가는 줄**이
+   생깁니다. 방어막과 실제 방문 기록이 한 칸이라도 어긋나면 그 한 번이
+   앱 밖으로 — 같은 창에서 Re:Call 을 먼저 열었다면 그쪽으로 — 넘어갑니다.
+   기록이 어긋나는 경로를 끝내 못 찾았지만, 아껴 봐야 헛클릭 한 번이고
+   잃으면 하던 일이 통째로 날아갑니다. 그래서 부르지 않습니다.
+   남은 방어막은 다음 뒤로가기가 조용히 소모하고 아무 일도 안 일어납니다. */
+function disarmIfDone(){ /* 일부러 아무것도 하지 않습니다 */ }
 window.addEventListener('popstate',()=>{
   backArmed=false;
   const close=topLayer();
@@ -3802,7 +3803,7 @@ function paintIssuer(){
   const admin=me&&me.role==='admin';
   for(const [el] of ISSUER_FIELDS) $(el).disabled=!admin;
   $('c-save').hidden=!admin;
-  $('issuerWho').textContent=admin?'고칠 수 있습니다':'관리자만 고칩니다';
+  $('issuerWho').textContent=admin?'입력란을 눌러 수정':'관리자만 고칩니다';
   $('issuerWho').className='badge '+(admin?'running':'');
 }
 $('c-save').addEventListener('click',async ()=>{
@@ -3926,8 +3927,6 @@ function renderMembers(){
   $('memNote').innerHTML = admin
     ? '줄을 누르면 비밀번호를 다시 정하거나 사용을 중지할 수 있습니다.<br>여기서 만든 계정은 Re:Call 에도 그대로 들어갑니다 — 회사가 하나이기 때문입니다.'
     : '계정 추가와 비밀번호 재발급은 <b>회사 관리자</b>가 합니다.';
-  $('memWho').textContent = admin?'만들 수 있습니다':'관리자만 만듭니다';
-  $('memWho').className = 'badge '+(admin?'running':'');
   $('s-addUser').hidden = !admin;
 }
 
