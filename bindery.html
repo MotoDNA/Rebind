@@ -92,6 +92,11 @@ h1.ptitle{font-size:1.6rem;font-weight:800;letter-spacing:-.035em;margin:14px 0 
    점으로만 보이면 대문자로 들어간 것을 알 길이 없습니다 — 실제로 그래서
    백업 관리자 계정이 적어 둔 것과 다른 비밀번호로 만들어졌습니다.
    입력칸에만 붙입니다. 칸 전체에 붙이면 아래 안내문과 겹칩니다. */
+.costsum{background:var(--blue-bg);border-radius:12px;padding:12px 14px;margin-bottom:14px;
+  font-size:.86rem;font-weight:700;color:var(--blue-d);line-height:1.7}
+.costsum .big{display:block;font-size:1.05rem;font-weight:800;margin-top:2px}
+.costsum .warn{color:var(--amber);font-weight:700}
+.costrow{background:var(--fill2);border:1px solid var(--line);border-radius:12px;padding:12px;margin-bottom:8px}
 .pwwrap{position:relative;display:block}
 .pwwrap .inp,.pwwrap input{padding-right:62px}
 .pwsee{position:absolute;right:12px;top:0;height:52px;padding:0 4px;border:0;background:none;
@@ -766,6 +771,18 @@ nav.tabs button:active{opacity:.6}
 
       <div class="card" id="n-moneyCard">
         <h3>금액과 일정</h3>
+        <div id="n-costWrap" hidden>
+          <label style="display:block;font-size:.8rem;font-weight:700;color:var(--sub);margin:0 0 7px;padding-left:2px">
+            원가 내역 <span class="badge">제작사만</span></label>
+          <p class="note" style="margin:0 0 10px">표지·내지·인쇄·재단·제본처럼 들어가는 값을 하나씩 적으면
+            총비용과 부당 단가를 셈해 아래 단가에 넣습니다.<br>
+            <b>고객에게 나가는 종이에는 부당 단가만 찍힙니다.</b> 이 내역은 찍히지 않습니다.</p>
+          <div id="n-costBox"></div>
+          <button class="btn line sm" id="n-costAdd" type="button" style="width:100%;margin:0 0 8px">+ 항목 추가</button>
+          <div class="preset" style="margin-bottom:10px" id="n-costQuick"></div>
+          <div id="n-costSum" class="costsum"></div>
+        </div>
+
         <div class="row2" id="n-priceRow">
           <div class="field">
             <label for="n-price">단가 (원)</label>
@@ -1515,6 +1532,7 @@ function fromRow(r, m){
     options:Array.isArray(r.options)?r.options:[],
     price:Number(M.unit_price||0), vat:Number(M.vat_rate??10),
     extras:Array.isArray(M.extra_items)?M.extra_items:[],
+    costs:Array.isArray(M.cost_items)?M.cost_items:[],
     status:r.status||'ready', startedOn:r.started_on||null, dueOn:r.due_on||null, doneOn:r.done_on||null,
     billedOn:M.billed_on||null, taxedOn:M.taxed_on||null, paidOn:M.paid_on||null,
     photos:r.photos||[], orderPhoto:r.order_photo||null, memo:M.memo||'',
@@ -1560,7 +1578,7 @@ const PRJ_COL = {
   shareOn:    ['share_on',          p=>!!p.shareOn],
 };
 /* 금액 표로 가는 이름들. projects 로 보내면 안 됩니다. */
-const MONEY_KEYS = ['price','vat','extras','billedOn','taxedOn','paidOn','memo'];
+const MONEY_KEYS = ['price','vat','extras','costs','billedOn','taxedOn','paidOn','memo'];
 
 function toRow(p){
   const r={ id:p.id, company_id:me.companyId, deleted:false };
@@ -1587,6 +1605,7 @@ function toMoneyRow(p){
     project_id:p.id, company_id:me.companyId,
     unit_price:num(p.price), vat_rate:num(p.vat),
     extra_items:p.extras||[],
+    cost_items:p.costs||[],
     billed_on:p.billedOn||null, taxed_on:p.taxedOn||null, paid_on:p.paidOn||null,
     memo:p.memo||''
   };
@@ -1636,6 +1655,25 @@ function spanOf(p){
   const last =p.doneOn   || (ss.length && ss[ss.length-1].at) || null;
   return {first,last,days:daysBetween(first,last)};
 }
+/* ───────── 원가에서 부당 단가 뽑기 ─────────
+   턴키 주문은 표지·내지·인쇄·재단·제본 값을 따로 셈해 총비용을 내고,
+   그것을 전체 부수로 나눠 부당 단가를 냅니다.
+   고객에게 나가는 종이에는 **부당 단가만** 적히고, 어떻게 나온 값인지는
+   제작사만 봅니다. 그래서 이 값은 금액 표(관리자 전용)에 있고
+   견적서·명세서·고객사 화면 어디에도 찍지 않습니다. */
+const costsOf = p => Array.isArray(p && p.costs) ? p.costs : [];
+function costCalc(p){
+  const rows = costsOf(p).map(c=>({
+    n:c.n||'', u:c.u||'', q:num(c.q), p:num(c.p),
+    amount: Math.round(num(c.q||1) * num(c.p))
+  }));
+  const total = rows.reduce((a,r)=>a+r.amount, 0);
+  const qty = Math.max(0, Math.round(num(p&&p.qty)));
+  // 부수를 아직 안 적었으면 나눌 수가 없습니다. 0 으로 나누지 않습니다.
+  const each = qty>0 ? Math.round(total/qty) : null;
+  return {rows, total, qty, each};
+}
+
 /* 명세서 품목 — 본품 한 줄 + 추가 품목들 */
 function linesOf(p){
   const out=[];
@@ -2202,6 +2240,67 @@ function paintNewMode(){
   $('fromQuote').hidden     = q || !isAdmin() || !onlyQuotes().length;
 }
 
+/* ───────── 원가 내역 적는 칸 ─────────
+   추가 품목 칸과 같은 방식입니다. 화면이 값을 들고 있고, 고칠 때마다
+   다시 읽어 셈합니다. 셈한 부당 단가는 아래 단가 칸에 바로 넣습니다 —
+   눌러야 들어가게 두면 안 누르고 넘어갑니다. 그래도 단가는 직접 고칠 수 있습니다. */
+const COST_QUICK=['표지 인쇄','내지 인쇄','표지 용지','내지 용지','코팅','재단','접지','제본','타공','후가공','박스','용달'];
+let costDraft=[];
+
+function renderCosts(){
+  const box=$('n-costBox'); if(!box) return;
+  box.innerHTML=costDraft.map((c,i)=>
+    '<div class="costrow">'+
+      '<div style="display:flex;gap:8px;margin-bottom:8px">'+
+        '<input class="inp co-n" placeholder="항목 (예: 표지 인쇄)" value="'+esc(c.n||'')+'" style="flex:1;height:44px">'+
+        '<button class="btn line sm" type="button" data-rmco="'+i+'" style="width:46px;padding:0">✕</button>'+
+      '</div>'+
+      '<div class="row3">'+
+        '<input class="inp co-q num" type="number" inputmode="numeric" placeholder="수량" value="'+(c.q??'')+'" style="height:44px">'+
+        '<input class="inp co-u" placeholder="단위" value="'+esc(c.u||'')+'" style="height:44px">'+
+        '<input class="inp co-p num" type="number" inputmode="numeric" placeholder="단가" value="'+(c.p??'')+'" style="height:44px">'+
+      '</div>'+
+    '</div>').join('');
+  box.querySelectorAll('[data-rmco]').forEach(b=>
+    b.addEventListener('click',()=>{ readCosts(); costDraft.splice(num(b.dataset.rmco),1); renderCosts() }));
+  ['co-n','co-q','co-u','co-p'].forEach(c=>
+    box.querySelectorAll('.'+c).forEach(el=>el.addEventListener('input',paintCostSum)));
+  paintCostSum();
+}
+function readCosts(){
+  const box=$('n-costBox'); if(!box) return costDraft;
+  const g=c=>[...box.querySelectorAll('.'+c)];
+  const ns=g('co-n'), qs=g('co-q'), us=g('co-u'), ps=g('co-p');
+  costDraft=ns.map((el,i)=>({n:el.value.trim(), q:num(qs[i].value),
+                             u:us[i].value.trim(), p:num(ps[i].value)}));
+  return costDraft;
+}
+/* 총비용과 부당 단가를 보여 주고, 단가 칸에 넣습니다 */
+function paintCostSum(){
+  const el=$('n-costSum'); if(!el) return;
+  const 쓴것=readCosts().filter(c=>c.n||c.q||c.p);
+  const 부수=Math.max(0,Math.round(num($('n-qty')?$('n-qty').value:0)));
+  const c=costCalc({costs:쓴것, qty:부수});
+  if(!쓴것.length){ el.innerHTML=''; return }
+  el.innerHTML = '총비용 '+money(c.total)+'원'+
+    (c.qty>0
+      ? ' ÷ '+money(c.qty)+'부<span class="big">부당 단가 '+money(c.each)+'원</span>'
+      : '<span class="big warn">총 제작수량을 적으면 부당 단가가 나옵니다</span>');
+  if(c.each!=null && $('n-price')) $('n-price').value=c.each;
+}
+function paintCostWrap(){
+  const w=$('n-costWrap'); if(!w) return;
+  w.hidden = !isAdmin();
+  const q=$('n-costQuick');
+  if(q && !q.dataset.done){
+    q.dataset.done='1';
+    q.innerHTML=COST_QUICK.map(n=>'<button type="button" data-coq="'+esc(n)+'">+ '+esc(n)+'</button>').join('');
+    q.querySelectorAll('[data-coq]').forEach(b=>b.addEventListener('click',()=>{
+      readCosts(); costDraft.push({n:b.dataset.coq,q:'',u:'',p:''}); renderCosts();
+    }));
+  }
+}
+
 function clearNew(){
   Object.keys(NEW_MAP).forEach(id=>{ if($(id)) $(id).value='' });
   unitSet('n-unit','n-unitTxt','부');
@@ -2210,6 +2309,7 @@ function clearNew(){
   renderOpts([], 'nOptBox');
   hideClientAC();
   newEditId=null; orderBlob=null;
+  costDraft=[]; renderCosts(); paintCostWrap();
   const rn=$('readNote'); if(rn) rn.remove();
   document.querySelectorAll('#p-new .inp.check').forEach(el=>el.classList.remove('check'));
   paintNewMode();
@@ -2222,6 +2322,8 @@ function fillNew(src){
   }
   unitSet('n-unit','n-unitTxt', src.unit || '부');
   renderOpts(src.options||[], 'nOptBox');
+  costDraft=(src.costs||[]).map(c=>({...c}));
+  renderCosts(); paintCostWrap();
   hideClientAC();
   paintNewMode();
 }
@@ -2237,10 +2339,15 @@ function readNew(){
     bind:o.bind.trim(), finish:o.finish.trim(),
     options:readOpts('nOptBox').filter(x=>x.label||x.value),
     price:num(o.price), vat:num(o.vat),
+    costs:readCosts().filter(c=>c.n||c.q||c.p),
     startedOn:o.startedOn||todayKey(), dueOn:o.dueOn||null,
     memo:o.memo.trim()
   };
 }
+
+$('n-costAdd').addEventListener('click',()=>{ readCosts(); costDraft.push({n:'',q:'',u:'',p:''}); renderCosts() });
+// 부수를 고치면 부당 단가도 다시 셈해야 합니다
+if($('n-qty')) $('n-qty').addEventListener('input',paintCostSum);
 
 $('n-clear').addEventListener('click',clearNew);
 $('n-addopt').addEventListener('click',()=>{
@@ -2808,6 +2915,20 @@ function renderDetail(){
        '</span><span class="v">'+money(l.amount)+'</span></div>').join('');
   h+='<div class="money"><span class="k">공급가액</span><span class="v">'+money(m.supply)+'</span></div>';
   h+='<div class="money"><span class="k">부가세 ('+num(p.vat)+'%)</span><span class="v">'+money(m.vat)+'</span></div>';
+  const cc=costCalc(p);
+  if(cc.rows.length){
+    // 견적할 때 어떻게 이 단가가 나왔는지. 종이에는 안 찍힙니다.
+    h+='<div style="margin:12px 0 4px;font-size:.8rem;font-weight:800;color:var(--mut)">'+
+       '원가 내역 <span class="badge">제작사만</span></div>';
+    h+=cc.rows.map(r=>'<div class="money"><span class="k">'+esc(r.n||'항목')+
+        (r.q?' <span style="color:var(--dim)">'+money(r.q)+esc(r.u||'')+' × '+money(r.p)+'</span>':'')+
+        '</span><span class="v">'+money(r.amount)+'</span></div>').join('');
+    h+='<div class="money"><span class="k">총비용</span><span class="v">'+money(cc.total)+'</span></div>';
+    if(cc.each!=null)
+      h+='<div class="money"><span class="k">부당 단가 ('+money(cc.qty)+'부로 나눔)</span>'+
+         '<span class="v">'+money(cc.each)+'</span></div>';
+    h+='<div style="height:10px"></div>';
+  }
   h+='<div class="money total"><span class="k">합계</span><span class="v">'+money(m.total)+'<small style="font-size:.8rem;font-weight:700;color:var(--mut)"> 원</small></span></div>';
   h+='</div>';
   }
@@ -4231,6 +4352,7 @@ function paintPerms(){
   if(bar) bar.className = a ? 'in in5' : 'in';
   // 새 프로젝트에서 값을 적는 것은 관리자만입니다. 보기와 쓰기는 다릅니다.
   if($('n-priceRow'))  $('n-priceRow').hidden  = !a;
+  paintCostWrap();
   if($('n-memoField')) $('n-memoField').hidden = !a;
   for(const [el] of VIS_FIELDS){ const x=$(el); if(x) x.disabled=!a }
 }
