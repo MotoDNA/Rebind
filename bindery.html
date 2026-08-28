@@ -832,6 +832,33 @@ nav.tabs button:active{opacity:.6}
       </div>
 
       <div class="card">
+        <h3>직원에게 보일 것 <span class="sp"></span><span class="badge" id="visWho">관리자만</span></h3>
+        <p class="note" style="margin:0 0 4px">꺼 두면 직원 화면에서 사라집니다.
+          화면에서만 가리는 것이 아니라 <b>서버가 아예 내려 주지 않습니다.</b></p>
+        <div class="setrow">
+          <input class="sw" type="checkbox" id="v-money" aria-label="금액">
+          <span>금액
+            <span style="display:block;font-size:.78rem;color:var(--mut);font-weight:600;margin-top:2px">
+              단가 · 추가 품목 · 합계. 거래명세서와 청구서도 함께 열립니다</span></span>
+        </div>
+        <div class="setrow">
+          <input class="sw" type="checkbox" id="v-settle" aria-label="정산">
+          <span>정산
+            <span style="display:block;font-size:.78rem;color:var(--mut);font-weight:600;margin-top:2px">
+              청구서 발송 · 세금계산서 · 수금. 미수금 목록도 함께</span></span>
+        </div>
+        <div class="setrow">
+          <input class="sw" type="checkbox" id="v-memo" aria-label="내부 메모">
+          <span>내부 메모
+            <span style="display:block;font-size:.78rem;color:var(--mut);font-weight:600;margin-top:2px">
+              고객사에게는 어느 쪽이든 나가지 않습니다</span></span>
+        </div>
+        <p class="note" style="margin-top:12px">열어 주어도 <b>고치는 것은 관리자만</b> 입니다.
+          직원은 보기만 합니다.<br>
+          고객사 공유와 견적서는 늘 관리자 몫입니다.</p>
+      </div>
+
+      <div class="card">
         <h3>공급자 정보 <span class="sp"></span><span class="badge" id="issuerWho">관리자만</span></h3>
         <p class="note" style="margin:-6px 0 14px">거래명세서 왼쪽 "공급자" 칸에 그대로 들어갑니다.</p>
         <div class="field">
@@ -1388,15 +1415,14 @@ async function signOut(){
 async function pull(){
   if(!sb||!me) return {ok:false};
   try{
-    /* 금액은 딴 표(project_money)에 있고 관리자만 읽을 수 있습니다.
-       직원이 불러 봐야 빈 손이라, 아예 부르지 않습니다.
-       isAdmin() 대신 me.role 을 직접 보는 것은 이 함수가 파일 위쪽에 있어서입니다. */
-    const admin = me.role==='admin';
+    /* 금액은 딴 표에 있습니다. 읽을 때는 원본이 아니라 창(project_money_v)을 봅니다.
+       창이 회사 설정을 보고 칸마다 가려 줍니다 — 잠근 칸은 0 과 빈칸으로 옵니다.
+       관리자에게는 전부 그대로 옵니다. (sql/0014_visibility.sql) */
     const [a,b,c,d]=await Promise.all([
       sb.from('projects').select('*').eq('deleted',false).order('updated_at',{ascending:false}),
       sb.from('project_steps').select('*').eq('deleted',false).order('at',{ascending:true}).order('created_at',{ascending:true}),
       sb.from('profiles').select('id, login_id, name, role, disabled'),
-      admin ? sb.from('project_money').select('*') : Promise.resolve({data:[]})
+      sb.from('project_money_v').select('*')
     ]);
     if(a.error) throw a.error;
     const mm=new Map((d.data||[]).map(m=>[m.project_id,m]));
@@ -1568,6 +1594,17 @@ function calc(p){
    화면에서 가리고, 데이터베이스도 막습니다 — 금액은 딴 표(project_money)에
    있고 그 표는 관리자에게만 내려갑니다 (sql/0009_money.sql). */
 const isAdmin = () => !!(me && me.role === 'admin');
+
+/* 이 사람이 이것을 볼 수 있나 — 'money' · 'settle' · 'memo'
+   관리자는 늘 봅니다. 직원은 관리자가 설정에서 켜 둔 것만 봅니다.
+   여기서 가리는 것은 화면이지만, 화면만 가리는 것이 아닙니다 —
+   꺼 둔 칸은 데이터베이스가 0 과 빈칸으로 내려 줍니다. 화면을 우회해도
+   볼 것이 없습니다 (sql/0014_visibility.sql 의 project_money_v). */
+const VIS_COL={money:'staff_money', settle:'staff_settle', memo:'staff_memo'};
+function canSee(k){
+  if(isAdmin()) return true;
+  return !!(issuer && issuer[VIS_COL[k]]);
+}
 
 /* 용지 — 표지와 내지를 따로 적습니다.
    예전에 한 칸에 몰아 적어 둔 것은 그대로 보여 줍니다. */
@@ -1858,7 +1895,7 @@ function renderChips(){
   const counts={'':live.length};
   for(const k of Object.keys(STATUS)) counts[k]=live.filter(p=>p.status===k).length;
   let items=[['','전체']].concat(Object.keys(STATUS).map(k=>[k,STATUS[k].ko]));
-  if(isAdmin()){
+  if(canSee('settle')){
     counts.unpaid=live.filter(isUnpaid).length;
     items=items.concat([['unpaid','미수금']]);
   }
@@ -1902,7 +1939,7 @@ function prjCard(p){
       '<span class="sp"></span>'+
       (arrivalWaiting(p)?'<span class="badge wait">입고 '+arrivalCount(p).in+'/'+arrivalCount(p).all+'</span>':'')+
       (p.shareOn?'<span class="badge share">공유 중</span>':'')+
-      (isAdmin()&&p.kind!=='quote'&&(p.status==='done'||p.billedOn)?settleDots(p):'')+
+      (canSee('settle')&&p.kind!=='quote'&&(p.status==='done'||p.billedOn)?settleDots(p):'')+
       '<span>'+due+'</span>'+
     '</div>'+
   '</button>';
@@ -2432,14 +2469,15 @@ function renderBoard(){
      '<dt>이번 달 완료</dt><dd>'+all.filter(p=>p.status==='done'&&String(p.doneOn||'').slice(0,7)===todayKey().slice(0,7)).length+'건</dd>'+
      (isAdmin()?'<dt>공유 중</dt><dd>'+all.filter(p=>p.shareOn).length+'건</dd>':'')+
      '<dt>입고 대기</dt><dd>'+all.filter(arrivalWaiting).length+'건</dd>'+
-     (isAdmin()?'<dt>미수금</dt><dd>'+all.filter(isUnpaid).length+'건</dd>':'')+
+     (canSee('settle')?'<dt>미수금</dt><dd>'+all.filter(isUnpaid).length+'건</dd>':'')+
      '</div></div>';
 
   /* 미수금 — 납품은 됐는데 아직 못 받은 것 */
   const unpaid=all.filter(isUnpaid).sort((a,b)=>String(a.doneOn||'').localeCompare(String(b.doneOn||'')));
-  if(isAdmin() && unpaid.length){
-    const sum=unpaid.reduce((a,p)=>a+calc(p).total,0);
-    h+='<div class="card"><h3 style="color:var(--amber)">미수금 '+money(sum)+'원 · '+unpaid.length+'건</h3>'+
+  if(canSee('settle') && unpaid.length){
+    // 금액이 잠겨 있으면 합계를 적지 않습니다. 0원이라고 쓰면 거짓말이 됩니다.
+    const 합계 = canSee('money') ? money(unpaid.reduce((a,p)=>a+calc(p).total,0))+'원 · ' : '';
+    h+='<div class="card"><h3 style="color:var(--amber)">미수금 '+합계+unpaid.length+'건</h3>'+
        '<div class="glist">'+unpaid.map(p=>{
          const d=unpaidDays(p);
          return boardRow(p, d===null?'—':(d===0?'오늘 납품':d+'일째'));
@@ -2646,14 +2684,18 @@ function renderDetail(){
      '</div>';
 
   /* ── 정산 — 청구서 보냈나 · 계산서 끊었나 · 돈 받았나 ── */
-  if(isAdmin() && p.kind!=='quote'){
+  /* 관리자가 열어 주면 직원도 봅니다. 켜고 끄는 것은 관리자만입니다 —
+     금액 표는 관리자만 쓸 수 있어서 직원이 눌러 봐야 저장되지 않습니다. */
+  if(canSee('settle') && p.kind!=='quote'){
+    const 고칠수있나=isAdmin();
     h+='<div class="card"><h3>정산</h3>';
     h+=SETTLE.map(([k,ko])=>{
       const on=!!p[k];
       return '<div class="setrow">'+
-        '<input class="sw" type="checkbox" data-set="'+k+'"'+(on?' checked':'')+' aria-label="'+esc(ko)+'">'+
+        '<input class="sw" type="checkbox" data-set="'+k+'"'+(on?' checked':'')+
+          (고칠수있나?'':' disabled')+' aria-label="'+esc(ko)+'">'+
         '<span>'+esc(ko)+'</span>'+
-        (on ? '<input type="date" data-setd="'+k+'" value="'+esc(p[k])+'">'
+        (on ? '<input type="date" data-setd="'+k+'" value="'+esc(p[k])+'"'+(고칠수있나?'':' disabled')+'>'
             : '<span class="when off">아직</span>')+
       '</div>';
     }).join('');
@@ -2664,10 +2706,10 @@ function renderDetail(){
     h+='</div>';
   }
 
-  /* ── 금액 — 관리자만 봅니다 ── */
-  if(isAdmin()){
+  /* ── 금액 — 관리자가 열어 주면 직원도 봅니다. 고치는 것은 관리자만. ── */
+  if(canSee('money')){
   h+='<div class="card"><h3>금액<span class="sp"></span>'+
-     '<button class="btn sm line" id="editMoney">고치기</button></h3>';
+     (isAdmin()?'<button class="btn sm line" id="editMoney">고치기</button>':'')+'</h3>';
   h+=m.lines.map(l=>'<div class="money"><span class="k">'+esc(l.name)+
        (l.qty?' <span style="color:var(--dim)">'+money(l.qty)+esc(l.unit)+' × '+money(l.price)+'</span>':'')+
        '</span><span class="v">'+money(l.amount)+'</span></div>').join('');
@@ -2692,21 +2734,26 @@ function renderDetail(){
        '<p class="note">받은 원본입니다. 명세서와 고객사 화면에는 나가지 않습니다.</p></div>';
   }
 
-  /* ── 내부 메모 — 관리자만 봅니다 ── */
-  if(isAdmin()){
+  /* ── 내부 메모 — 관리자가 열어 주면 직원도 봅니다. 쓰는 것은 관리자만. ── */
+  if(canSee('memo')){
     h+='<div class="card"><h3>내부 메모</h3>'+
        '<textarea class="inp" id="d-memo" placeholder="고객사에게는 보이지 않습니다">'+esc(p.memo)+'</textarea>'+
        '<div class="btnrow"><button class="btn ghost sm" id="saveMemo" style="flex:1">메모 저장</button></div></div>';
   }
 
-  /* ── 서류 · 공유 — 관리자만 ── */
-  if(isAdmin()){
+  /* ── 서류 · 공유 ──
+     서류는 금액이 본체라 금액을 볼 수 있는 사람만 뽑습니다.
+     고객사 공유와 견적서는 관리자 몫으로 둡니다 — 밖으로 나가는 일과
+     아직 일이 되지도 않은 값이라 성격이 다릅니다. */
+  if(canSee('money') || isAdmin()){
     h+='<div class="btnrow" style="margin-top:18px">'+
-       '<button class="btn ghost" id="goShare">고객사 공유</button>'+
-       '<button class="btn" id="goInv">거래명세서</button></div>';
-    h+='<div class="btnrow">'+
-       '<button class="btn line" id="goBill">청구서</button>'+
-       '<button class="btn line" id="goQuote">견적서</button></div>';
+       (isAdmin()?'<button class="btn ghost" id="goShare">고객사 공유</button>':'')+
+       (canSee('money')?'<button class="btn" id="goInv">거래명세서</button>':'')+'</div>';
+    if(canSee('money')){
+      h+='<div class="btnrow">'+
+         '<button class="btn line" id="goBill">청구서</button>'+
+         (isAdmin()?'<button class="btn line" id="goQuote">견적서</button>':'')+'</div>';
+    }
     if(pc<100){
       h+='<p class="note" style="text-align:center">공정이 100% 가 되면 완료로 바뀌고 명세서가 완성됩니다. 지금도 미리 볼 수 있습니다.</p>';
     }
@@ -3739,6 +3786,10 @@ $('i-xlsx').addEventListener('click',async ()=>{
 /* ═════════ 설정 ═════════ */
 const ISSUER_FIELDS=[['c-bizno','biz_no'],['c-ceo','ceo'],['c-tel','tel'],['c-addr','addr'],
                      ['c-type','biz_type'],['c-item','biz_item'],['c-bank','bank'],['c-note','note']];
+/* 직원에게 열어 줄 것들 — 화면 스위치 id ↔ 데이터베이스 칸 ↔ canSee 이름 */
+const VIS_FIELDS=[['v-money','staff_money','money'],
+                  ['v-settle','staff_settle','settle'],
+                  ['v-memo','staff_memo','memo']];
 function paintMe(){
   $('ownerName').textContent = me ? me.name : '—';
   $('me-name').textContent = me ? me.name : '—';
@@ -3765,6 +3816,35 @@ $('c-save').addEventListener('click',async ()=>{
   issuer={...(issuer||{}),...row};
   toast('저장했습니다. 이제 명세서에 찍힙니다');
 });
+/* 공개 범위 — 켜고 끄면 바로 저장합니다. 저장 버튼을 따로 두면
+   켜 놓고 안 누른 채 나가는 일이 생깁니다. */
+function paintVis(){
+  const a=isAdmin();
+  for(const [el,col] of VIS_FIELDS){
+    const x=$(el); if(!x) continue;
+    x.checked = !!(issuer && issuer[col]);
+    x.disabled = !a;
+  }
+  $('visWho').textContent = a?'고칠 수 있습니다':'관리자만 고칩니다';
+  $('visWho').className = 'badge '+(a?'running':'');
+}
+for(const [el,col] of VIS_FIELDS){
+  const x=$(el); if(!x) continue;
+  x.addEventListener('change',async e=>{
+    if(!isAdmin()){ e.target.checked=!e.target.checked; return }
+    const on=e.target.checked;
+    const {error}=await sb.from('company_settings')
+      .upsert({company_id:me.companyId,[col]:on},{onConflict:'company_id'});
+    if(error){
+      e.target.checked=!on;
+      toast('바꾸지 못했습니다: '+String(error.message).slice(0,50));
+      return;
+    }
+    issuer={...(issuer||{}),[col]:on};
+    toast(on?'직원에게 보입니다':'직원에게 감췄습니다');
+  });
+}
+
 $('s-out').addEventListener('click',()=>{ if(confirm('로그아웃할까요?')) signOut() });
 
 /* ═════════ 직원 계정 (관리자만) ═════════
@@ -3958,7 +4038,7 @@ function go(p){
   if(p==='board') renderBoard();
   if(p==='quote') renderQuotes();
   if(p==='new')   paintNewMode();
-  if(p==='set'){ paintMe(); paintIssuer(); renderMembers() }
+  if(p==='set'){ paintMe(); paintIssuer(); paintVis(); renderMembers() }
   window.scrollTo(0,0);
 }
 TABS.forEach(k=>$('t-'+k).addEventListener('click',()=>{
@@ -3969,10 +4049,10 @@ TABS.forEach(k=>$('t-'+k).addEventListener('click',()=>{
 }));
 
 /* 관리자와 직원이 보는 것이 다릅니다.
-   여기서 가리는 것은 화면이지만, 이제 화면만 가리는 것이 아닙니다 —
-   금액·정산일·내부메모는 딴 표(project_money)에 있고 그 표는
-   데이터베이스가 관리자에게만 내려 줍니다 (sql/0009_money.sql).
-   직원이 개발자 도구로 직접 불러도 빈 손입니다. */
+   여기서 가리는 것은 화면이지만, 화면만 가리는 것이 아닙니다 —
+   금액·정산일·내부메모는 딴 표에 있고, 잠근 칸은 데이터베이스가
+   0 과 빈칸으로 내려 줍니다 (sql/0014_visibility.sql).
+   무엇을 열어 줄지는 관리자가 설정에서 고릅니다. */
 function paintPerms(){
   const a=isAdmin();
   $('t-quote').hidden=!a;
@@ -3980,8 +4060,10 @@ function paintPerms(){
   if(!a && selMode) setSelMode(false);
   const bar=document.querySelector('nav.tabs .in');
   if(bar) bar.className = a ? 'in in5' : 'in';
+  // 새 프로젝트에서 값을 적는 것은 관리자만입니다. 보기와 쓰기는 다릅니다.
   if($('n-priceRow'))  $('n-priceRow').hidden  = !a;
   if($('n-memoField')) $('n-memoField').hidden = !a;
+  for(const [el] of VIS_FIELDS){ const x=$(el); if(x) x.disabled=!a }
 }
 window.addEventListener('scroll',()=>{ $('appbar').classList.toggle('stuck',window.scrollY>4) },{passive:true});
 
@@ -4034,6 +4116,9 @@ async function refreshNow(){
   if(document.hidden) return;
   refreshBusy=true;
   const r=await pull();
+  // 관리자가 다른 기기에서 공개 범위를 바꿨을 수 있습니다. 함께 받아 옵니다 —
+  // 안 받아 오면 서버는 이미 가렸는데 화면은 0원짜리 금액 칸을 계속 그립니다.
+  await pullIssuer();
   refreshBusy=false;
   if(!r.ok) return;
   renderChips(); renderList();
