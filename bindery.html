@@ -1673,6 +1673,18 @@ function canSee(k){
   return !!(issuer && issuer[VIS_COL[k]]);
 }
 
+/* 서류에 적히는 제품 사양 한 벌.
+   거래명세서 · 견적서 · 고객사 화면이 이 하나를 같이 봅니다.
+   따로 두었더니 명세서의 사양표에서 표지·내지 용지가 통째로 빠져 있었습니다 —
+   8월 27일에 용지를 둘로 나눈 뒤 그 자리만 옛 코드로 남아 있었습니다. */
+function specRowsOf(p){
+  return [['규격',p.size],['면수',p.pages?money(p.pages)+'면':''],['색상 · 도수',p.color]]
+    .concat(paperRows(p))
+    .concat([['제본 방식',p.bind],['후가공',p.finish]])
+    .concat((p.options||[]).map(o=>[o.label||'',o.value||'']))
+    .filter(([,v])=>String(v||'').trim());
+}
+
 /* 용지 — 표지와 내지를 따로 적습니다.
    예전에 한 칸에 몰아 적어 둔 것은 그대로 보여 줍니다. */
 function paperRows(p){
@@ -3404,11 +3416,7 @@ function paperHTML(mk,p,steps){
   const blanks=Math.max(0,5-m.lines.length);
   const pad=Array.from({length:blanks},()=>'<tr><td>&nbsp;</td><td></td><td></td><td></td><td></td></tr>').join('');
 
-  const specRows=[
-    ['규격',p.size],['면수',p.pages?money(p.pages)+'면':''],['색상 · 도수',p.color],
-    ['용지',p.paper],['제본 방식',p.bind],['후가공',p.finish]
-  ].concat((p.options||[]).map(o=>[o.label||'',o.value||'']))
-   .filter(([,v])=>String(v||'').trim());
+  const specRows=specRowsOf(p);
 
   const stepRows=(steps||[]).map(s=>
     '<tr><td class="d">'+esc(shortDay(s.at))+'</td><td>'+esc(s.name||'')+
@@ -3509,7 +3517,13 @@ function billDoc(list, kind){
     sub: multi ? periodLabel(list)+' · '+list.length+'건'
                : [(list[0]&&list[0].name)||'', (list[0]&&list[0].code)?'발주번호 '+list[0].code:'']
                  .filter(Boolean).join(' · '),
-    rows, supply, vat, total:supply+vat, showDate:multi, kind
+    rows, supply, vat, total:supply+vat, showDate:multi, kind,
+    /* 견적서에는 제작 상세를 함께 적습니다.
+       나중에 작업의뢰서가 왔을 때 견적과 달라진 데가 없는지 대조하려면
+       종이에 그 내용이 남아 있어야 합니다. 그게 견적서의 실제 쓰임입니다.
+       청구서는 여러 건을 묶기도 해서 한 벌의 사양을 적을 수가 없습니다. */
+    spec: (kind==='quote' && !multi && list[0]) ? specRowsOf(list[0]) : null,
+    qty:  (kind==='quote' && !multi && list[0]) ? list[0] : null
   };
 }
 
@@ -3573,6 +3587,13 @@ function formHTML(mk, doc){
       '<td class="n">₩'+money(doc.vat)+'</td>'+
       '<td class="n">₩'+money(doc.total)+'</td><td></td></tr>'+
   '</tbody></table>'+
+
+  ((doc.spec && doc.spec.length)?
+    '<h4>제작 상세</h4><table class="spec"><tbody>'+
+    doc.spec.map(([k,v])=>'<tr><th>'+esc(k)+'</th><td>'+esc(v)+'</td></tr>').join('')+
+    (doc.qty && doc.qty.qty
+      ? '<tr><th>총 제작수량</th><td>'+money(doc.qty.qty)+' '+esc(doc.qty.unit||'부')+'</td></tr>' : '')+
+    '</tbody></table>':'')+
 
   '<div class="bankline">'+
     (mk.bank?'<span><b>계좌</b> '+esc(mk.bank)+'</span>':'')+
@@ -4379,11 +4400,7 @@ function renderPublic(d){
   }
   h+='</div>';
 
-  const specRows=[['규격',p.size],['면수',p.pages?money(p.pages)+'면':''],['색상 · 도수',p.color]]
-    .concat(paperRows(p))
-    .concat([['제본 방식',p.bind],['후가공',p.finish]])
-    .concat((p.options||[]).map(o=>[o.label||'',o.value||'']))
-    .filter(([,v])=>String(v||'').trim());
+  const specRows=specRowsOf(p);
   if(specRows.length){
     h+='<div class="card"><h3>제품 사양</h3><div class="kv">'+
        specRows.map(([k,v])=>'<dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd>').join('')+'</div></div>';
