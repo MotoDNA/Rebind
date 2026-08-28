@@ -313,11 +313,13 @@ nav.tabs button:active{opacity:.6}
 .money.total .v{font-size:1.25rem;font-weight:800;letter-spacing:-.03em}
 
 /* ───── 바텀시트 ───── */
-.back{position:fixed;inset:0;z-index:70;background:rgba(25,31,40,.42);opacity:0;transition:opacity .22s;
+.back{position:fixed;inset:0;z-index:97;background:rgba(25,31,40,.42);opacity:0;transition:opacity .22s;
   backdrop-filter:blur(1px);overscroll-behavior:contain;touch-action:none}
 .back.on{opacity:1}
 .sheet{
-  position:fixed;left:0;right:0;bottom:0;z-index:71;background:#fff;
+  /* 명세서 화면(#inv)이 96 이라 그보다 위에 있어야 가려지지 않습니다.
+     사진 크게 보기(100)와 알림 띠(120) 밑에는 그대로 둡니다. */
+  position:fixed;left:0;right:0;bottom:0;z-index:98;background:#fff;
   border-radius:24px 24px 0 0;padding:8px 20px calc(20px + env(safe-area-inset-bottom));
   max-width:var(--w);margin:0 auto;transform:translateY(102%);transition:transform .26s cubic-bezier(.2,.85,.3,1);
   max-height:92vh;overflow-y:auto;overscroll-behavior:contain;
@@ -588,7 +590,6 @@ nav.tabs button:active{opacity:.6}
       <span>Re<em>:</em>Bind</span>
     </div>
     <h1>제조 공정과 명세서</h1>
-    <p class="sub">Re:Call 과 같은 회사 코드·아이디로 들어옵니다</p>
     <form id="gateForm" autocomplete="on">
       <div class="field">
         <label for="g-code">회사 코드</label>
@@ -937,6 +938,7 @@ nav.tabs button:active{opacity:.6}
       </button>
       <div class="sp"></div>
       <button class="btn sm ghost" id="i-xlsx">엑셀</button>
+      <button class="btn sm ghost" id="i-send" style="margin-left:8px">보내기</button>
       <button class="btn sm" id="i-pdf" style="margin-left:8px">PDF · 인쇄</button>
     </div>
     <div class="paperwrap" id="paperWrap"><div class="paper" id="paper"></div></div>
@@ -1056,6 +1058,27 @@ nav.tabs button:active{opacity:.6}
 </div>
 
 <!-- ───── 견적서 고르기 ───── -->
+<!-- ───── 서류를 그림·PDF 로 보내기 ───── -->
+<div class="sheet" id="sheetSend" hidden>
+  <div class="grab"></div>
+  <h3 id="sendTitle">보내기</h3>
+  <div class="glist">
+    <button class="grow" id="send-img">
+      <span class="nm">이미지로 보내기
+        <span style="display:block;font-size:.78rem;color:var(--mut);font-weight:600;margin-top:2px">
+          카톡 대화창에서 바로 보입니다. 안 받아도 됩니다</span></span>
+    </button>
+    <button class="grow" id="send-pdf">
+      <span class="nm">PDF 로 보내기
+        <span style="display:block;font-size:.78rem;color:var(--mut);font-weight:600;margin-top:2px">
+          보관용·첨부용. 받는 분이 한 번 눌러 받아야 보입니다</span></span>
+    </button>
+  </div>
+  <p class="note" id="sendNote">누르면 폰의 공유창이 뜹니다. 거기서 카카오톡을 고르세요.<br>
+    특정 앱으로 곧장 보내는 길은 웹에 없어서 한 번 더 고르셔야 합니다.</p>
+  <button class="btn ghost" id="send-close" type="button" style="margin-top:16px">닫기</button>
+</div>
+
 <div class="sheet" id="sheetQuotePick" hidden>
   <div class="grab"></div>
   <h3>어느 견적서를 옮길까요</h3>
@@ -1567,6 +1590,54 @@ function memName(id){
   return m?m.name:(me&&id===me.id?me.name:'');
 }
 
+/* ═════════ 안드로이드 뒤로가기 ═════════
+   지금까지는 뒤로가기를 누르면 브라우저가 페이지를 통째로 떠나
+   로그인 화면으로 돌아갔습니다. 꾹 눌러 고르기를 켜 놓고 뒤로가기를
+   누르면 하던 일이 통째로 날아갔습니다.
+
+   이제 앱 안에 열려 있는 것이 있으면 **그것부터 하나씩** 닫습니다.
+   위에 있는 것부터입니다 — 시트 → 명세서 → 상세 → 고르기.
+
+   방법: 무언가 열릴 때 방문 기록에 자리 하나(방어막)를 세워 둡니다.
+   뒤로가기를 누르면 그 자리가 소모되면서 우리가 대신 하나를 닫습니다.
+   아직 남은 것이 있으면 방어막을 다시 세웁니다.
+
+   아무것도 안 열려 있으면 방어막을 세우지 않습니다. 목록 화면에서
+   뒤로가기를 눌렀는데 아무 일도 안 일어나는 게 더 답답하기 때문입니다. */
+let backArmed=false;
+let inPopstate=false;
+
+function armBack(){
+  if(backArmed) return;
+  try{ history.pushState({rb:1},'') }catch(e){ return }
+  backArmed=true;
+}
+/* 맨 위에 열려 있는 것을 닫는 방법을 돌려줍니다. 없으면 null */
+function topLayer(){
+  const id=sheetStack[sheetStack.length-1];
+  if(id && $(id)) return ()=>closeSheetEl(id);
+  if($('inv')    && !$('inv').hidden)    return closeInvoice;
+  if($('detail') && !$('detail').hidden) return closeDetail;
+  if(selMode) return ()=>setSelMode(false);
+  return null;
+}
+/* 앱 안의 버튼으로 닫아서 남은 것이 없어지면, 세워 둔 방어막도 거둡니다.
+   안 거두면 다음 뒤로가기 한 번이 그것을 소모하느라 헛돕니다. */
+function disarmIfDone(){
+  if(inPopstate || !backArmed) return;
+  if(topLayer()) return;
+  backArmed=false;
+  try{ history.back() }catch(e){}
+}
+window.addEventListener('popstate',()=>{
+  backArmed=false;
+  const close=topLayer();
+  if(!close) return;              // 열린 게 없으면 평소대로 — 앱을 떠납니다
+  inPopstate=true;
+  try{ close() } finally { inPopstate=false }
+  if(topLayer()) armBack();       // 아직 남아 있으면 다시 세웁니다
+});
+
 /* ═════════ 바텀시트 · 화면 잠금 ═════════ */
 const SHEET_IDS=['sheetStep','sheetSpec','sheetMoney','sheetShare','sheetMore','sheetQuotePick','sheetSettle','sheetPick'];
 function anySheetOpen(except){
@@ -1576,13 +1647,21 @@ function lockScroll(){
   const open=!$('gate').hidden || !$('detail').hidden || !$('inv').hidden || anySheetOpen(null);
   document.body.style.overflow=open?'hidden':'';
 }
+/* 열린 순서를 담아 둡니다. 뒤로가기는 맨 위엣것부터 닫아야 하고,
+   닫는 데 애니메이션이 0.24초 걸려서 hidden 만 봐서는 방금 닫은 것을
+   아직 열려 있다고 잘못 셉니다. */
+const sheetStack=[];
 function openSheetEl(id){
   $('back').hidden=false; $(id).hidden=false;
+  const i=sheetStack.indexOf(id); if(i>=0) sheetStack.splice(i,1);
+  sheetStack.push(id);
+  armBack();
   lockScroll();
   requestAnimationFrame(()=>{ $('back').classList.add('on'); $(id).classList.add('on') });
 }
 function closeSheetEl(id){
   if(!$(id)||$(id).hidden) return;
+  const i=sheetStack.indexOf(id); if(i>=0) sheetStack.splice(i,1);
   $(id).classList.remove('on');
   if(!anySheetOpen(id)) $('back').classList.remove('on');
   setTimeout(()=>{
@@ -1590,6 +1669,7 @@ function closeSheetEl(id){
     if(!anySheetOpen(id)) $('back').hidden=true;
     lockScroll();
   },240);
+  disarmIfDone();
 }
 function closeAllSheets(){ SHEET_IDS.forEach(closeSheetEl) }
 $('back').addEventListener('click',closeAllSheets);
@@ -1814,11 +1894,13 @@ function bindCard(el){
 }
 function setSelMode(on){
   selMode=!!on;
+  if(selMode) armBack();
   if(!selMode) selIds.clear();
   $('selToggle').textContent = selMode ? '그만두기' : '묶어서 청구';
   $('selBar').hidden = !selMode;
   document.body.classList.toggle('picking', selMode);
   renderList(); paintSel();
+  if(!selMode) disarmIfDone();
 }
 function toggleSel(id){
   if(selIds.has(id)) selIds.delete(id); else selIds.add(id);
@@ -2367,6 +2449,7 @@ async function savePrj(patch,quiet){
 function openDetail(id){
   curId=id;
   if(!curPrj()) return;
+  armBack();
   $('detail').hidden=false;
   $('detail').scrollTop=0;
   lockScroll();
@@ -2374,6 +2457,7 @@ function openDetail(id){
 }
 function closeDetail(){
   $('detail').hidden=true; curId=null; lockScroll();
+  disarmIfDone();
 }
 $('d-back').addEventListener('click',closeDetail);
 
@@ -3073,10 +3157,14 @@ function openDoc(kind){
   // 저장해 둔 견적서를 열었을 때만 고치기·옮기기가 뜹니다
   $('quoteActions').hidden = !(docKind==='quote' && p.kind==='quote');
   paintBilledBtn();
+  armBack();
   $('inv').hidden=false; $('inv').scrollTop=0; lockScroll();
   renderPaper();
 }
-function closeInvoice(){ $('inv').hidden=true; $('quoteActions').hidden=true; lockScroll() }
+function closeInvoice(){
+  $('inv').hidden=true; $('quoteActions').hidden=true; lockScroll();
+  disarmIfDone();
+}
 $('i-back').addEventListener('click',closeInvoice);
 
 function renderPaper(){
@@ -3353,6 +3441,145 @@ function loadXLSX(){
   });
   return xlsxLoading;
 }
+/* ═════════ 서류를 그림·PDF 로 만들어 보내기 ═════════
+   지금까지 PDF 는 브라우저 인쇄로만 만들었습니다. 그건 사용자가 직접
+   "PDF로 저장" 을 누르는 것이라 **파일이 코드 손에 잡히지 않습니다.**
+   카톡으로 보내려면 파일이 있어야 해서, 화면에 그려 둔 A4 도안을
+   그대로 떠서 파일로 만듭니다.
+
+   글자를 다시 그리지 않고 화면을 뜨는 이유: 한글 글꼴을 PDF 안에 넣으면
+   파일이 몇 MB가 되고 줄바꿈이 깨집니다. 화면을 그대로 뜨면 지금 보이는
+   종이가 그대로 나옵니다. 대신 글자 선택·검색은 안 됩니다.
+
+   카카오톡을 콕 집어 보낼 방법은 웹에 없습니다. 폰의 공유창을 열어
+   주는 것까지가 끝이고, 거기서 카카오톡을 고르시면 됩니다.
+   (카카오 SDK 는 링크·카드만 보냅니다. 파일은 못 붙입니다) */
+let libLoading={};
+function loadLib(key, src, check){
+  if(check()) return Promise.resolve(check());
+  if(libLoading[key]) return libLoading[key];
+  libLoading[key]=new Promise((res,rej)=>{
+    const el=document.createElement('script');
+    el.src=src;
+    el.onload=()=>check()?res(check()):rej(new Error('불러오지 못했습니다'));
+    el.onerror=()=>rej(new Error('인터넷을 확인해 주세요'));
+    document.head.appendChild(el);
+  });
+  return libLoading[key];
+}
+const loadCanvas = () => loadLib('h2c',
+  'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js',
+  ()=>window.html2canvas);
+const loadPDF = () => loadLib('jspdf',
+  'https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js',
+  ()=>window.jspdf && window.jspdf.jsPDF);
+
+/* 서류 이름 — 엑셀과 같은 규칙입니다 */
+function docFileName(ext){
+  const p=invData&&invData.p; if(!p) return '서류.'+ext;
+  const 이름 = invData.list && invData.list.length>1
+    ? (p.client||'').replace(/[\/:*?"<>|]/g,'')      // 묶음 청구서는 거래처 이름으로
+    : [(p.client||''),(p.name||'')].map(x=>x.replace(/[\/:*?"<>|]/g,'')).filter(Boolean).join('_');
+  const stamp=(p.doneOn||todayKey()).replace(/-/g,'');
+  return [(DOC[docKind]||DOC.invoice).ko, 이름, stamp].filter(Boolean).join('_')+'.'+ext;
+}
+
+/* A4 도안을 그림으로 뜹니다.
+   화면에서는 폰 폭에 맞춰 줄여 놓았기 때문에(fitPaper), 뜨기 전에 원래 크기로
+   되돌렸다가 끝나면 도로 줄입니다. 줄어든 채로 뜨면 글자가 뭉갭니다. */
+async function paperCanvas(){
+  const h2c=await loadCanvas();
+  const el=$('paper');
+  await fillPhotos(el);                       // 사진 주소를 먼저 채웁니다
+  // 사진이 실제로 다 내려올 때까지 기다립니다. 안 그러면 빈 칸으로 떠집니다.
+  await Promise.all([...el.querySelectorAll('img')].map(img =>
+    img.complete ? null : new Promise(r=>{ img.onload=img.onerror=r })));
+  const tr=el.style.transform, mb=el.style.marginBottom, mr=el.style.marginRight;
+  el.style.transform='none'; el.style.marginBottom='0'; el.style.marginRight='0';
+  try{
+    return await h2c(el, {
+      scale: 2,                 // 두 배로 떠야 폰에서 봐도 글자가 또렷합니다
+      backgroundColor: '#FFFFFF',
+      useCORS: true,            // 사진은 보관함의 한시적 주소라 이게 필요합니다
+      logging: false,
+      windowWidth: 794,
+    });
+  } finally {
+    el.style.transform=tr; el.style.marginBottom=mb; el.style.marginRight=mr;
+  }
+}
+
+/* 파일을 공유창으로 보냅니다. 안 되는 기기면 내려받기로 떨어집니다.
+   데스크톱 브라우저는 파일 공유를 대부분 못 해서 거의 내려받기가 됩니다. */
+async function sendFile(file, 무엇){
+  if(navigator.canShare && navigator.canShare({files:[file]})){
+    try{
+      await navigator.share({files:[file], title:file.name});
+      return;
+    }catch(e){
+      if(e && e.name==='AbortError') return;   // 사용자가 공유창을 닫은 것
+      /* 공유가 막히면 아래 내려받기로 넘어갑니다 */
+    }
+  }
+  const url=URL.createObjectURL(file);
+  const a=document.createElement('a');
+  a.href=url; a.download=file.name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 10000);
+  toast(무엇+'을 내려받았습니다');
+}
+
+$('i-send').addEventListener('click',()=>{
+  if(!invData) return;
+  $('sendTitle').textContent=(DOC[docKind]||DOC.invoice).ko+' 보내기';
+  openSheetEl('sheetSend');
+});
+$('send-close').addEventListener('click',()=>closeSheetEl('sheetSend'));
+
+async function sendDoc(kind){
+  const b1=$('send-img'), b2=$('send-pdf');
+  b1.disabled=b2.disabled=true;
+  const 원래 = kind==='img' ? b1.textContent : b2.textContent;
+  try{
+    const canvas=await paperCanvas();
+    if(kind==='img'){
+      const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+      if(!blob) throw new Error('그림을 만들지 못했습니다');
+      await sendFile(new File([blob], docFileName('png'), {type:'image/png'}), '이미지');
+    }else{
+      const jsPDF=await loadPDF();
+      const pdf=new jsPDF({unit:'mm', format:'a4', orientation:'portrait'});
+      const H=297;
+      let W=210;
+      let 그림높이 = canvas.height * W / canvas.width;   // mm
+      let 왼쪽=0;
+      /* 한 장을 아주 조금 넘길 때는 살짝 줄여 한 장에 담습니다.
+         명세서가 A4 보다 8% 긴 일이 흔한데, 그때마다 손톱만 한 둘째 장이
+         딸려 나오면 받는 쪽이 "이게 뭔가" 합니다. 15% 까지만 줄입니다 —
+         그보다 길면(줄이 많은 묶음 청구서 같은 것) 억지로 줄이면 안 읽힙니다. */
+      if(그림높이 > H && 그림높이 <= H*1.15){
+        const 비율 = H/그림높이;
+        W = 210*비율; 그림높이 = H; 왼쪽 = (210-W)/2;
+      }
+      const img=canvas.toDataURL('image/jpeg', 0.92);
+      let 남은=그림높이, 위치=0;
+      while(남은 > 0.5){
+        pdf.addImage(img, 'JPEG', 왼쪽, 위치, W, 그림높이);
+        남은 -= H;
+        if(남은 > 0.5){ pdf.addPage(); 위치 -= H }
+      }
+      const blob=pdf.output('blob');
+      await sendFile(new File([blob], docFileName('pdf'), {type:'application/pdf'}), 'PDF');
+    }
+    closeSheetEl('sheetSend');
+  }catch(e){
+    toast('만들지 못했습니다: '+String(e.message||e).slice(0,50));
+  }
+  b1.disabled=b2.disabled=false;
+}
+$('send-img').addEventListener('click',()=>sendDoc('img'));
+$('send-pdf').addEventListener('click',()=>sendDoc('pdf'));
+
 $('i-xlsx').addEventListener('click',async ()=>{
   if(!invData) return;
   const {maker:mk,p,steps}=invData;
