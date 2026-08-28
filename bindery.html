@@ -353,6 +353,10 @@ nav.tabs button:active{opacity:.6}
 
 /* 고객사 자동완성 — 칸 바로 아래에 붙습니다 */
 .acwrap{position:relative}
+.note.bad{color:var(--red);font-weight:700}
+.pwhint{margin:6px 0 0;font-size:.8rem;font-weight:600;color:var(--mut);line-height:1.5}
+.pwhint.ok{color:var(--green)}
+.pwhint.bad{color:var(--red)}
 .ac{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:20;background:#fff;
   border-radius:14px;box-shadow:var(--shx);overflow:hidden;max-height:280px;overflow-y:auto}
 .acrow{display:flex;align-items:center}
@@ -821,6 +825,13 @@ nav.tabs button:active{opacity:.6}
       </div>
 
       <div class="card">
+        <h3>팀원 <span class="sp"></span><span class="badge" id="memWho">관리자만</span></h3>
+        <div class="glist" id="memList"></div>
+        <p class="note" id="memNote" style="margin-top:12px"></p>
+        <button class="btn line" id="s-addUser" hidden style="width:100%;margin-top:10px">직원 계정 추가</button>
+      </div>
+
+      <div class="card">
         <h3>공급자 정보 <span class="sp"></span><span class="badge" id="issuerWho">관리자만</span></h3>
         <p class="note" style="margin:-6px 0 14px">거래명세서 왼쪽 "공급자" 칸에 그대로 들어갑니다.</p>
         <div class="field">
@@ -1058,6 +1069,60 @@ nav.tabs button:active{opacity:.6}
 </div>
 
 <!-- ───── 견적서 고르기 ───── -->
+<!-- ───── 직원 계정 (관리자만) ───── -->
+<div class="sheet" id="sheetUser" hidden>
+  <div class="grab"></div>
+  <h3 id="userTitle">직원 계정 추가</h3>
+
+  <div id="userNew">
+    <p class="note" style="margin:0 0 14px">회사 코드는 <b id="u-code">—</b> 입니다.
+      직원은 이 코드와 아래 아이디로 들어옵니다.</p>
+    <div class="field">
+      <label for="u-id">아이디</label>
+      <input id="u-id" class="inp" placeholder="예: younghee" autocapitalize="none"
+             autocorrect="off" spellcheck="false" maxlength="32">
+    </div>
+    <div class="field">
+      <label for="u-name">이름</label>
+      <input id="u-name" class="inp" placeholder="예: 김영희">
+    </div>
+    <div class="field">
+      <label for="u-pw">비밀번호</label>
+      <input id="u-pw" class="inp" type="password" autocomplete="new-password">
+      <p class="pwhint" id="u-pwHint"></p>
+    </div>
+    <div class="field">
+      <label for="u-pw2">비밀번호 확인</label>
+      <input id="u-pw2" class="inp" type="password" autocomplete="new-password">
+      <p class="pwhint" id="u-pw2Hint"></p>
+    </div>
+    <div class="setrow">
+      <input class="sw" type="checkbox" id="u-admin" aria-label="관리자 권한">
+      <span>관리자 권한
+        <span style="display:block;font-size:.78rem;color:var(--mut);font-weight:600;margin-top:2px">
+          금액 · 명세서 · 청구서 · 정산을 봅니다</span></span>
+    </div>
+  </div>
+
+  <div id="userManage" hidden>
+    <p class="note" id="userWho" style="margin:0 0 14px"></p>
+    <div class="field">
+      <label for="u-newpw">새 비밀번호</label>
+      <input id="u-newpw" class="inp" type="password" autocomplete="new-password">
+      <p class="pwhint" id="u-newpwHint"></p>
+    </div>
+    <button class="btn line" id="u-reset" style="width:100%">비밀번호 재발급</button>
+    <p class="note" id="u-toggleNote" style="margin:16px 0 8px"></p>
+    <button class="btn danger" id="u-toggle" style="width:100%">사용 중지</button>
+  </div>
+
+  <p class="note" id="userStat" hidden style="margin-top:14px"></p>
+  <div class="btnrow" style="margin-top:16px">
+    <button class="btn ghost" id="userCancel" type="button">닫기</button>
+    <button class="btn" id="userSave" type="button">만들기</button>
+  </div>
+</div>
+
 <!-- ───── 서류를 그림·PDF 로 보내기 ───── -->
 <div class="sheet" id="sheetSend" hidden>
   <div class="grab"></div>
@@ -1337,7 +1402,8 @@ async function pull(){
     const mm=new Map((d.data||[]).map(m=>[m.project_id,m]));
     prjs=(a.data||[]).map(r=>fromRow(r, mm.get(r.id)));
     allSteps=(b.data||[]).map(fromStep);
-    members=(c.data||[]).map(p=>({id:p.id,name:p.name||p.login_id,role:p.role,disabled:!!p.disabled}));
+    members=(c.data||[]).map(p=>({id:p.id, loginId:p.login_id,
+                                  name:p.name||p.login_id, role:p.role, disabled:!!p.disabled}));
     return {ok:true};
   }catch(e){ return {ok:false,msg:e.message||String(e)} }
 }
@@ -1639,7 +1705,8 @@ window.addEventListener('popstate',()=>{
 });
 
 /* ═════════ 바텀시트 · 화면 잠금 ═════════ */
-const SHEET_IDS=['sheetStep','sheetSpec','sheetMoney','sheetShare','sheetMore','sheetQuotePick','sheetSettle','sheetPick'];
+const SHEET_IDS=['sheetStep','sheetSpec','sheetMoney','sheetShare','sheetMore','sheetQuotePick',
+                 'sheetSettle','sheetPick','sheetSend','sheetUser'];
 function anySheetOpen(except){
   return SHEET_IDS.some(id=>id!==except && $(id) && !$(id).hidden);
 }
@@ -3700,6 +3767,187 @@ $('c-save').addEventListener('click',async ()=>{
 });
 $('s-out').addEventListener('click',()=>{ if(confirm('로그아웃할까요?')) signOut() });
 
+/* ═════════ 직원 계정 (관리자만) ═════════
+   계정을 만들고 비밀번호를 바꾸는 일은 브라우저가 하지 않습니다.
+   admin-user 서버 함수가 대신하고, 그 함수만 열쇠(service_role)를 갖고 있습니다.
+   Re:Call 과 같은 함수·같은 계정을 씁니다 — 여기서 만든 직원은 Re:Call 에도
+   그대로 들어갑니다. 회사가 하나이기 때문입니다. */
+async function adminCall(payload){
+  if(!sb||!me) return {ok:false,error:'로그인이 필요합니다.'};
+  const {data:sess}=await sb.auth.getSession();
+  const token=sess&&sess.session?sess.session.access_token:'';
+  if(!token) return {ok:false,error:'로그인이 만료되었습니다. 다시 들어와 주세요.'};
+  try{
+    const r=await fetch(FN_BASE+'/admin-user',{
+      method:'POST',
+      headers:{'content-type':'application/json','authorization':'Bearer '+token},
+      body:JSON.stringify(payload)
+    });
+    return await r.json().catch(()=>({ok:false,error:'응답을 읽지 못했습니다.'}));
+  }catch(e){ return {ok:false,error:'서버에 닿지 못했습니다.'} }
+}
+
+/* 비밀번호 규칙 — 서버(admin-user 의 checkPw)와 같은 기준입니다.
+   한쪽만 고치면 앱에서는 통과하고 서버가 거절하는 일이 생기니 함께 고쳐야 합니다. */
+function pwProblem(pw){
+  if(String(pw).length<10) return '10자 이상이어야 합니다';
+  if(/^[0-9]+$/.test(pw)) return '숫자만으로는 안 됩니다';
+  if(/^(.)\1+$/.test(pw)) return '같은 글자만 반복할 수 없습니다';
+  if(['password12','1234567890','qwertyuiop','admin12345','qwer1234!@']
+      .includes(String(pw).toLowerCase())) return '너무 흔한 비밀번호입니다';
+  return null;
+}
+const PW_GUIDE='영문과 숫자를 섞어 <b>10자 이상</b>으로 정해 주세요.';
+function pwPaint(inputId,hintId){
+  const pw=$(inputId).value, el=$(hintId);
+  if(!pw){ el.className='pwhint'; el.innerHTML=PW_GUIDE; return }
+  const bad=pwProblem(pw);
+  if(bad){ el.className='pwhint bad'; el.textContent=bad; return }
+  el.className='pwhint ok';
+  el.textContent=(/[A-Za-z]/.test(pw)&&/[0-9]/.test(pw))
+    ? '쓸 수 있습니다' : '쓸 수 있습니다 — 숫자를 섞으면 더 안전합니다';
+}
+function pwPaintMatch(){
+  const a=$('u-pw').value, b=$('u-pw2').value, el=$('u-pw2Hint');
+  if(!b){ el.className='pwhint'; el.textContent=''; return }
+  el.className='pwhint '+(a===b?'ok':'bad');
+  el.textContent=a===b?'위와 같습니다':'위와 다릅니다';
+}
+$('u-pw').addEventListener('input',()=>{ pwPaint('u-pw','u-pwHint'); pwPaintMatch() });
+$('u-pw2').addEventListener('input',pwPaintMatch);
+$('u-newpw').addEventListener('input',()=>pwPaint('u-newpw','u-newpwHint'));
+
+function userStat(kind,html){
+  const el=$('userStat');
+  if(!html){ el.hidden=true; return }
+  el.hidden=false;
+  el.className='note'+(kind==='err'?' bad':'');
+  el.innerHTML=html;
+}
+function userBusy(on){ ['userSave','u-reset','u-toggle'].forEach(id=>{ const b=$(id); if(b) b.disabled=!!on }) }
+
+/* ── 명단 ── */
+function renderMembers(){
+  const box=$('memList'); if(!box) return;
+  const admin=!!(me&&me.role==='admin');
+  const ms=(members||[]).slice().sort((a,b)=>
+    (a.disabled?1:0)-(b.disabled?1:0) || String(a.name).localeCompare(String(b.name)));
+  box.innerHTML = ms.length ? ms.map(m=>{
+    const 나 = me && m.id===me.id;
+    const 꼬리 = (나?' <span class="ct">(나)</span>':'')+
+                 (m.role==='admin'?' <span class="ct">관리자</span>':'')+
+                 (m.disabled?' <span class="ct">중지됨</span>':'');
+    const 속 = '<span class="nm"'+(m.disabled?' style="opacity:.5"':'')+'>'+esc(m.name)+꼬리+'</span>';
+    // 자기 계정은 여기서 못 건드립니다. 실수로 스스로를 잠그지 않도록.
+    return (admin && !나)
+      ? '<button class="grow" data-u="'+esc(m.loginId||m.login_id||'')+'" style="text-align:left">'+속+'</button>'
+      : '<div class="grow">'+속+'</div>';
+  }).join('') : '<div class="grow"><span class="nm" style="color:var(--dim);font-weight:500">아직 명단을 불러오지 못했습니다</span></div>';
+  $('memNote').innerHTML = admin
+    ? '줄을 누르면 비밀번호를 다시 정하거나 사용을 중지할 수 있습니다.<br>여기서 만든 계정은 Re:Call 에도 그대로 들어갑니다 — 회사가 하나이기 때문입니다.'
+    : '계정 추가와 비밀번호 재발급은 <b>회사 관리자</b>가 합니다.';
+  $('memWho').textContent = admin?'만들 수 있습니다':'관리자만 만듭니다';
+  $('memWho').className = 'badge '+(admin?'running':'');
+  $('s-addUser').hidden = !admin;
+}
+
+let userMode='new', userTarget=null;
+function openUserNew(){
+  userMode='new'; userTarget=null;
+  $('userTitle').textContent='직원 계정 추가';
+  $('userNew').hidden=false; $('userManage').hidden=true; $('userSave').hidden=false;
+  $('u-code').textContent = me?me.companyCode:'—';
+  ['u-id','u-name','u-pw','u-pw2'].forEach(id=>$(id).value='');
+  $('u-admin').checked=false;
+  $('u-pwHint').className='pwhint'; $('u-pwHint').innerHTML=PW_GUIDE;
+  $('u-pw2Hint').className='pwhint'; $('u-pw2Hint').textContent='';
+  userStat('',''); userBusy(false);
+  openSheetEl('sheetUser');
+}
+function openUserManage(m){
+  userMode='manage'; userTarget=m;
+  $('userTitle').textContent=m.name||m.loginId;
+  $('userNew').hidden=true; $('userManage').hidden=false; $('userSave').hidden=true;
+  $('u-newpw').value='';
+  $('u-newpwHint').className='pwhint'; $('u-newpwHint').innerHTML=PW_GUIDE;
+  $('userWho').innerHTML='아이디 <b>'+esc(m.loginId)+'</b>'+
+    (m.role==='admin'?' · 관리자':'')+(m.disabled?' · <b>지금은 중지되어 있습니다</b>':'');
+  $('u-toggle').textContent=m.disabled?'사용 재개':'사용 중지';
+  $('u-toggle').className=m.disabled?'btn line':'btn danger';
+  $('u-toggleNote').textContent=m.disabled
+    ? '재개하면 원래 아이디와 비밀번호로 다시 들어올 수 있습니다.'
+    : '중지하면 그 사람은 들어올 수 없습니다. 맡고 있던 프로젝트는 그대로 남습니다.';
+  userStat('',''); userBusy(false);
+  openSheetEl('sheetUser');
+}
+$('s-addUser').addEventListener('click',()=>{
+  if(!me||me.role!=='admin'){ toast('관리자만 할 수 있습니다'); return }
+  openUserNew();
+});
+$('memList').addEventListener('click',e=>{
+  const b=e.target.closest('[data-u]'); if(!b) return;
+  if(!me||me.role!=='admin') return;
+  const m=(members||[]).find(x=>(x.loginId||x.login_id)===b.dataset.u);
+  if(m) openUserManage(m);
+});
+$('userCancel').addEventListener('click',()=>closeSheetEl('sheetUser'));
+
+async function afterUserChange(){
+  const r=await pull();               // 명단을 다시 받아 옵니다
+  if(r.ok){ renderMembers(); renderChips(); renderList() }
+}
+
+$('userSave').addEventListener('click',async ()=>{
+  const loginId=$('u-id').value.trim().toLowerCase();
+  const name=$('u-name').value.trim();
+  const pw=$('u-pw').value, pw2=$('u-pw2').value;
+  if(!/^[a-z0-9._-]{2,32}$/.test(loginId)){
+    userStat('err','아이디는 영문 소문자·숫자와 - _ . 만 쓸 수 있고 2~32자입니다.'); return }
+  if(!name){ userStat('err','이름을 적어 주세요.'); return }
+  const bad=pwProblem(pw);
+  if(bad){ userStat('err','비밀번호는 '+bad+'.'); return }
+  if(pw!==pw2){ userStat('err','비밀번호가 서로 다릅니다.'); return }
+  userBusy(true); userStat('','만드는 중…');
+  const d=await adminCall({action:'create',loginId,name,password:pw,
+                           role:$('u-admin').checked?'admin':'user'});
+  userBusy(false);
+  if(!d.ok){ userStat('err',d.error||'만들지 못했습니다.'); return }
+  $('u-pw').value=''; $('u-pw2').value='';
+  closeSheetEl('sheetUser');
+  await afterUserChange();
+  toast(loginId+' 계정을 만들었습니다');
+});
+
+$('u-reset').addEventListener('click',async ()=>{
+  if(!userTarget) return;
+  const pw=$('u-newpw').value;
+  const bad=pwProblem(pw);
+  if(bad){ userStat('err','비밀번호는 '+bad+'.'); return }
+  if(!confirm(userTarget.name+' 님의 비밀번호를 새로 정합니다.\n지금 열려 있는 로그인은 모두 끊깁니다.')) return;
+  userBusy(true); userStat('','바꾸는 중…');
+  const d=await adminCall({action:'reset-password',loginId:userTarget.loginId,password:pw});
+  userBusy(false);
+  if(!d.ok){ userStat('err',d.error||'바꾸지 못했습니다.'); return }
+  $('u-newpw').value='';
+  closeSheetEl('sheetUser');
+  toast(userTarget.name+' 님의 비밀번호를 바꿨습니다');
+});
+
+$('u-toggle').addEventListener('click',async ()=>{
+  if(!userTarget) return;
+  const 끄기=!userTarget.disabled;
+  if(!confirm(userTarget.name+' 님을 '+(끄기
+      ? '사용 중지합니다.\n들어올 수 없게 되고 열려 있던 로그인도 끊깁니다.'
+      : '다시 쓰게 합니다.\n원래 아이디와 비밀번호로 들어옵니다.'))) return;
+  userBusy(true); userStat('','바꾸는 중…');
+  const d=await adminCall({action:'set-disabled',loginId:userTarget.loginId,disabled:끄기});
+  userBusy(false);
+  if(!d.ok){ userStat('err',d.error||'바꾸지 못했습니다.'); return }
+  closeSheetEl('sheetUser');
+  await afterUserChange();
+  toast(userTarget.name+' 님을 '+(끄기?'중지했습니다':'다시 쓰게 했습니다'));
+});
+
 /* ═════════ 탭 이동 ═════════ */
 const TABS=['list','new','board','quote','set'];
 function go(p){
@@ -3710,7 +3958,7 @@ function go(p){
   if(p==='board') renderBoard();
   if(p==='quote') renderQuotes();
   if(p==='new')   paintNewMode();
-  if(p==='set'){ paintMe(); paintIssuer() }
+  if(p==='set'){ paintMe(); paintIssuer(); renderMembers() }
   window.scrollTo(0,0);
 }
 TABS.forEach(k=>$('t-'+k).addEventListener('click',()=>{
