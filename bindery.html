@@ -417,10 +417,46 @@ nav.tabs button:active{opacity:.6}
   display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;
 }
 #gate .box{width:100%;max-width:400px}
-#gate .mark{display:flex;align-items:center;gap:11px;margin-bottom:28px;
-  font-size:1.3rem;font-weight:800;letter-spacing:-.025em;color:#fff}
-#gate .mark .logo{width:50px;height:50px;box-shadow:0 0 0 1px rgba(255,255,255,.10)}
-#gate .mark em{font-style:normal;color:var(--blue)}
+/* 회사 마크는 가운데 위에 크게 둡니다. 제품 이름은 아래 토글이 말해 줍니다 —
+   위에도 Re:Bind 를 적어 두면 고르기 전부터 한쪽으로 정해 놓은 꼴이 됩니다. */
+#gate .mark{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:22px}
+#gate .mark .logo{width:76px;height:76px;box-shadow:0 0 0 1px rgba(255,255,255,.10)}
+#gate .mark .co{font-size:.82rem;font-weight:700;letter-spacing:.14em;color:#6B7684;text-transform:uppercase}
+
+/* ───── 어느 서비스로 들어갈지 ─────
+   좌우 두 칸이 그대로 누르는 자리입니다. 뒤에서 미끄러지는 판(thumb)이
+   고른 쪽을 덮습니다. 글자는 고른 쪽만 밝아집니다. */
+#gate .pick{
+  position:relative;display:grid;grid-template-columns:1fr 1fr;gap:0;
+  background:#1B222C;border:1px solid #2A3441;border-radius:16px;padding:6px;margin-bottom:24px;
+}
+#gate .pick .thumb{
+  position:absolute;top:6px;left:6px;width:calc(50% - 6px);height:calc(100% - 12px);
+  border-radius:12px;background:#2B3644;box-shadow:0 1px 3px rgba(0,0,0,.28);
+  transition:transform .22s cubic-bezier(.4,0,.2,1);
+}
+#gate .pick.right .thumb{transform:translateX(100%)}
+#gate .pick .opt{
+  position:relative;z-index:1;background:none;border:0;margin:0;padding:15px 9px 16px;
+  font:inherit;color:#5C6675;cursor:pointer;text-align:center;border-radius:12px;
+  transition:color .18s;
+}
+#gate .pick .opt svg{width:23px;height:23px;stroke:currentColor;fill:none;
+  stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;display:block;margin:0 auto}
+#gate .pick .opt b{display:block;font-size:1.06rem;font-weight:800;letter-spacing:-.03em;margin:8px 0 5px;color:#8B95A1;transition:color .18s}
+#gate .pick .opt b em{font-style:normal;color:#5C6675;transition:color .18s}
+#gate .pick .opt i{display:block;font-style:normal;font-size:.735rem;font-weight:600;line-height:1.55}
+#gate .pick .opt.on{color:#B0B8C1}
+#gate .pick .opt.on b{color:#fff}
+#gate .pick .opt.on i{color:#8B95A1}
+/* 고른 쪽의 가운뎃점만 그 서비스 색으로 켭니다.
+   id 를 하나만 쓰면 위의 `#gate .pick .opt b em` 이 이겨서 안 켜집니다 —
+   클래스가 더 많은 쪽이 셉니다. 그래서 #gate 까지 함께 적었습니다. */
+#gate .pick #pick-rebind.on b em{color:var(--blue)}
+#gate .pick #pick-recall.on b em{color:#2ED3A7}
+
+#gate .othernote{font-size:.88rem;color:#8B95A1;line-height:1.65;margin:0 0 16px;text-align:center}
+#gate .othernote b{color:#fff}
 #gate h1{font-size:1.75rem;font-weight:800;letter-spacing:-.04em;margin:0 0 8px;line-height:1.3}
 #gate p.sub{color:#8B95A1;font-size:.9rem;margin:0 0 26px;line-height:1.5}
 #gate label{display:block;font-size:.8rem;font-weight:700;color:#B0B8C1;margin:0 0 7px;padding-left:2px}
@@ -620,9 +656,26 @@ nav.tabs button:active{opacity:.6}
   <div class="box">
     <div class="mark">
       <i class="logo" role="img" aria-label="DNA Labs"></i>
-      <span>Re<em>:</em>Bind</span>
+      <span class="co">DNA Labs</span>
     </div>
-    <h1>제조 공정과 명세서</h1>
+
+    <!-- 어느 서비스로 들어갈지. 누르면 고르기만 하고 넘어가지는 않습니다 —
+         비밀번호를 엉뚱한 앱에 치는 일이 없어야 합니다. -->
+    <div class="pick" id="appPick" role="tablist" aria-label="어느 서비스로 들어갈지">
+      <span class="thumb" aria-hidden="true"></span>
+      <button type="button" class="opt" id="pick-rebind" data-app="rebind" role="tab" aria-selected="true">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M5 17h13"/><path d="M9 8h5M9 11h5"/></svg>
+        <b>Re<em>:</em>Bind</b>
+        <i>제조 공정과 명세서<br>접수부터 납품 · 청구까지</i>
+      </button>
+      <button type="button" class="opt" id="pick-recall" data-app="recall" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="11" r="2"/><path d="M6 16c.6-1.4 1.7-2 3-2s2.4.6 3 2"/><path d="M15 10h4M15 13.5h3"/></svg>
+        <b>Re<em>:</em>Call</b>
+        <i>고객관리<br>명함부터 다음 할 일까지</i>
+      </button>
+    </div>
+
+    <h1 id="gateTitle">제조 공정과 명세서</h1>
     <form id="gateForm" autocomplete="on">
       <div class="field">
         <label for="g-code">회사 코드</label>
@@ -640,8 +693,13 @@ nav.tabs button:active{opacity:.6}
       </div>
       <button class="btn" id="g-go" type="submit">들어가기</button>
     </form>
+    <div id="gateOther" hidden>
+      <p class="othernote">Re:Call 은 <b>다른 주소</b>에서 엽니다.<br>
+        회사 코드와 아이디는 여기와 같습니다.</p>
+      <button class="btn" id="g-other" type="button">Re:Call 열기</button>
+    </div>
     <div class="msg" id="gateMsg"></div>
-    <div class="foot">
+    <div class="foot" id="gateFoot">
       계정은 <b>회사 관리자</b>가 만들어 줍니다.<br>
       고객사 담당자는 계정 없이 <b>공유 링크</b>로 보십니다.
     </div>
@@ -1573,15 +1631,27 @@ async function loadMe(){
      그래서 어느 연결인지 이름으로 못 박습니다. 안 그러면 300 이 돌아오고,
      이 함수가 실패해 로그인 직후 곧바로 튕겨 나갑니다. */
   const {data:p,error}=await sb.from('profiles')
-    .select('id, company_id, login_id, name, role, companies!profiles_company_id_fkey(code,name)')
+    .select('id, company_id, login_id, name, role, companies!profiles_company_id_fkey(code,name,apps)')
     .eq('id',u.user.id).single();
   if(error||!p){
     await sb.auth.signOut();
     return {ok:false,error:'계정 정보를 불러오지 못했습니다. 관리자에게 문의하세요.'};
   }
   const co = p.companies || p['companies!profiles_company_id_fkey'] || null;
+  /* 이 회사가 Re:Bind 를 산 회사인가.
+     데이터베이스도 막고 있습니다(company_for_app, sql/0019). 여기서 한 번 더
+     보는 것은 막힌 채로 앱에 들어가 빈 화면을 보게 두지 않으려는 것입니다 —
+     그러면 자료가 사라진 줄 압니다. */
+  const apps = (co && Array.isArray(co.apps)) ? co.apps : [];
+  if(!apps.includes(APP_KEY)){
+    await sb.auth.signOut();
+    me=null;
+    return {ok:false, wrongApp:true,
+      error:(co&&co.name?co.name+' 은(는) ':'이 회사는 ')+'Re:Bind 를 쓰는 회사가 아닙니다.'+
+        (apps.includes('recall') ? ' Re:Call 로 들어가 주세요.' : ' 담당자에게 문의해 주세요.')};
+  }
   me={id:p.id,companyId:p.company_id,loginId:p.login_id,name:p.name||p.login_id,role:p.role,
-      companyCode:(co&&co.code)||'',companyName:(co&&co.name)||''};
+      companyCode:(co&&co.code)||'',companyName:(co&&co.name)||'',apps};
   return {ok:true};
 }
 async function signOut(){
@@ -4740,9 +4810,51 @@ function paintPerms(){
 window.addEventListener('scroll',()=>{ $('appbar').classList.toggle('stuck',window.scrollY>4) },{passive:true});
 
 /* ═════════ 로그인 화면 ═════════ */
+/* ───────── 어느 서비스로 들어갈지 ─────────
+   두 앱은 주소가 다릅니다(rebind.dnalabs.kr · recall.dnalabs.kr).
+   주소가 다르면 로그인한 흔적을 넘겨줄 수 없어서, 반대쪽을 고르면
+   그 주소로 보내고 로그인은 그쪽에서 합니다.
+
+   **고르자마자 넘어가지는 않습니다.** 고르면 화면만 바뀌고, 열기 단추를
+   따로 눌러야 넘어갑니다. 바로 보내 버리면 잘못 눌렀을 때 하던 것이
+   날아가고, 무엇보다 Re:Call 을 골라 둔 줄 모르고 여기에 비밀번호를
+   치는 일이 없어야 합니다.
+
+   고른 것은 이 기기에 남깁니다. 다음에 이 주소로 와도 그 자리에서
+   시작합니다 — 매번 다시 고르게 하면 토글을 둔 뜻이 없습니다. */
+const APP_KEY='rebind';
+const OTHER={key:'recall', ko:'Re:Call', url:'https://recall.dnalabs.kr/'};
+const PICK_KEY='dnalabs-app';
+let pickApp=APP_KEY;
+
+function loadPick(){
+  try{ const v=localStorage.getItem(PICK_KEY); if(v==='rebind'||v==='recall') return v }catch(e){}
+  return APP_KEY;
+}
+function setPick(app,remember){
+  pickApp = (app==='recall') ? 'recall' : 'rebind';
+  if(remember!==false){ try{ localStorage.setItem(PICK_KEY,pickApp) }catch(e){} }
+  const mine = pickApp===APP_KEY;
+  $('appPick').classList.toggle('right', pickApp==='recall');
+  for(const [id,key] of [['pick-rebind','rebind'],['pick-recall','recall']]){
+    const b=$(id); if(!b) continue;
+    b.classList.toggle('on', pickApp===key);
+    b.setAttribute('aria-selected', String(pickApp===key));
+  }
+  $('gateTitle').textContent = mine ? '제조 공정과 명세서' : '고객관리';
+  $('gateForm').hidden  = !mine;
+  $('gateOther').hidden = mine;
+  $('gateFoot').hidden  = !mine;
+  $('gateMsg').className='msg';          // 서비스를 바꾸면 옛 오류 문구는 지웁니다
+}
+$('appPick').querySelectorAll('.opt').forEach(b=>
+  b.addEventListener('click',()=>setPick(b.dataset.app)));
+$('g-other').addEventListener('click',()=>{ location.href=OTHER.url });
+
 function showGate(){
   $('gate').hidden=false; lockScroll();
   $('gateMsg').className='msg'; $('g-pw').value='';
+  setPick(loadPick(), false);
 }
 function hideGate(){ $('gate').hidden=true; lockScroll() }
 function gateMsg(kind,text){
@@ -4978,7 +5090,12 @@ unitBind('n-unit','n-unitTxt');
   }
   const r=await loadMe();
   if(r.ok){ await afterLogin() }
-  else{ showGate() }
+  else{
+    showGate();
+    /* 쓰던 계정인데 회사가 Re:Bind 를 안 쓰게 된 경우입니다.
+       아무 말 없이 로그인 화면만 뜨면 비밀번호가 틀린 줄 알고 몇 번씩 칩니다. */
+    if(r.wrongApp && r.error) gateMsg('err', r.error);
+  }
 })();
 </script>
 </body>
