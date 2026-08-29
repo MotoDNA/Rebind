@@ -414,9 +414,13 @@ nav.tabs button:active{opacity:.6}
 /* ───── 로그인 화면 ───── */
 #gate{
   position:fixed;inset:0;z-index:100;background:var(--ink);color:#fff;
-  display:flex;align-items:center;justify-content:center;padding:24px;overflow-y:auto;
+  display:flex;justify-content:center;padding:24px;overflow-y:auto;
 }
-#gate .box{width:100%;max-width:400px}
+/* 가운데로 모으는 일을 align-items:center 가 아니라 margin:auto 로 합니다.
+   align-items:center 로 두면 칸이 화면보다 길 때 위로 삐져나간 부분을
+   **스크롤로도 되돌릴 수 없습니다.** 세로 700px 노트북에서 DNA 마크 윗동이
+   잘린 채 손이 닿지 않았습니다. margin:auto 는 그 자리를 남겨 둡니다. */
+#gate .box{width:100%;max-width:400px;margin:auto}
 /* 회사 마크는 가운데 위에 크게 둡니다. 제품 이름은 아래 토글이 말해 줍니다 —
    위에도 Re:Bind 를 적어 두면 고르기 전부터 한쪽으로 정해 놓은 꼴이 됩니다. */
 #gate .mark{display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:22px}
@@ -474,6 +478,23 @@ nav.tabs button:active{opacity:.6}
 #gate .msg.wait{background:#232B36;color:#B0B8C1}
 #gate .foot{margin-top:22px;font-size:.8rem;color:#6B7684;line-height:1.6}
 #gate .foot b{color:#8B95A1}
+
+/* 세로가 짧은 노트북 — 마크를 키우고 토글을 넣으면서 칸이 752px 이 되었습니다.
+   1366×768 노트북의 실제 높이는 700 안팎이라 그대로는 넘칩니다.
+   스크롤로 볼 수는 있지만, 처음 보이는 화면에서 마크가 잘려 있으면
+   덜 만든 것처럼 보입니다. 그래서 짧은 화면에서는 조금씩 줄입니다. */
+@media (max-height:790px){
+  #gate .mark{gap:7px;margin-bottom:16px}
+  #gate .mark .logo{width:58px;height:58px}
+  #gate .mark .co{font-size:.76rem}
+  #gate .pick{margin-bottom:17px}
+  #gate .pick .opt{padding:11px 9px 12px}
+  #gate .pick .opt b{margin:6px 0 4px}
+  #gate h1{font-size:1.5rem}
+  #gate .field{margin-bottom:11px}
+  #gate input{height:48px}
+  #gate .foot{margin-top:16px}
+}
 
 #toast{
   position:fixed;left:50%;bottom:calc(var(--nav) + 18px);transform:translate(-50%,10px);z-index:120;
