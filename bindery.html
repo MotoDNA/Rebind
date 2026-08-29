@@ -479,11 +479,48 @@ nav.tabs button:active{opacity:.6}
 #gate .foot{margin-top:22px;font-size:.8rem;color:#6B7684;line-height:1.6}
 #gate .foot b{color:#8B95A1}
 
+/* ───── PC — 두 칸으로 펼칩니다 ─────
+   1440px 화면에 400px 한 줄만 세워 두면 양옆이 520px씩 빕니다.
+   왼쪽에 마크와 고르는 자리를, 오른쪽에 로그인 칸을 둡니다.
+   토글은 그대로 한 덩어리로 둡니다 — 좌우로 갈라 놓으면
+   "둘 중 하나" 라는 것이 안 보입니다.
+
+   폭과 높이를 함께 봅니다. 가로만 보면 노트북을 반으로 줄여 세로로 긴
+   창을 만들었을 때도 두 칸이 되어 오히려 답답합니다. */
+@media (min-width:900px) and (min-height:600px){
+  #gate{padding:40px}
+  #gate .box{
+    max-width:940px;display:grid;grid-template-columns:1fr 384px;
+    gap:60px;align-items:center;
+  }
+  #gate .gleft{min-width:0}
+  #gate .gright{
+    min-width:0;background:#1B222C;border:1px solid #2A3441;
+    border-radius:20px;padding:30px 30px 26px;
+  }
+  /* 왼쪽은 자리가 넉넉하니 마크와 고르는 칸을 키웁니다 */
+  #gate .mark{align-items:flex-start;margin-bottom:26px;gap:12px}
+  #gate .mark .logo{width:88px;height:88px}
+  #gate .mark .co{font-size:.86rem}
+  #gate .pick{margin-bottom:0}
+  #gate .pick .opt{padding:20px 14px 21px}
+  #gate .pick .opt svg{width:26px;height:26px}
+  #gate .pick .opt b{font-size:1.16rem;margin:10px 0 6px}
+  #gate .pick .opt i{font-size:.79rem}
+  #gate h1{font-size:1.5rem;margin-bottom:18px}
+  #gate .foot{margin-top:18px}
+  /* 오른쪽 칸이 이미 상자라 안내문은 가운데로 모읍니다 */
+  #gate .othernote{margin-bottom:18px}
+}
+
 /* 세로가 짧은 노트북 — 마크를 키우고 토글을 넣으면서 칸이 752px 이 되었습니다.
    1366×768 노트북의 실제 높이는 700 안팎이라 그대로는 넘칩니다.
    스크롤로 볼 수는 있지만, 처음 보이는 화면에서 마크가 잘려 있으면
    덜 만든 것처럼 보입니다. 그래서 짧은 화면에서는 조금씩 줄입니다. */
-@media (max-height:790px){
+/* 두 칸으로 펼친 화면에서는 이 줄이기가 필요 없습니다 — 세로로 쌓지 않으니
+   1366×700 에서도 562px 이면 다 들어갑니다. 그런데도 줄이면 왼쪽 마크만
+   작아져서 오른쪽 칸에 눌린 것처럼 보입니다. 그래서 한 칸일 때만 줄입니다. */
+@media (max-height:790px) and (max-width:899px){
   #gate .mark{gap:7px;margin-bottom:16px}
   #gate .mark .logo{width:58px;height:58px}
   #gate .mark .co{font-size:.76rem}
@@ -675,6 +712,7 @@ nav.tabs button:active{opacity:.6}
 <!-- ═════════ 로그인 ═════════ -->
 <div id="gate" hidden>
   <div class="box">
+   <div class="gleft">
     <div class="mark">
       <i class="logo" role="img" aria-label="DNA Labs"></i>
       <span class="co">DNA Labs</span>
@@ -696,6 +734,8 @@ nav.tabs button:active{opacity:.6}
       </button>
     </div>
 
+   </div>
+   <div class="gright">
     <h1 id="gateTitle">제조 공정과 명세서</h1>
     <form id="gateForm" autocomplete="on">
       <div class="field">
@@ -724,6 +764,7 @@ nav.tabs button:active{opacity:.6}
       계정은 <b>회사 관리자</b>가 만들어 줍니다.<br>
       고객사 담당자는 계정 없이 <b>공유 링크</b>로 보십니다.
     </div>
+   </div>
   </div>
 </div>
 
