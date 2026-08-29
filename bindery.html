@@ -52,7 +52,7 @@ textarea{resize:none}
 /* ───── 레이아웃 ───── */
 .app{max-width:var(--w);margin:0 auto;min-height:100%;background:var(--bg);position:relative}
 main{padding:0 20px calc(var(--nav) + 28px)}
-body.picking main{padding-bottom:calc(var(--nav) + 96px)}
+body.picking main{padding-bottom:calc(var(--nav) + 156px)}
 .page{animation:fade .18s ease}
 @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
@@ -139,6 +139,10 @@ select.inp{
 .btn.ok{background:var(--green)}
 .btn.sm{height:44px;font-size:.88rem;border-radius:12px;width:auto;padding:0 16px}
 .btn.line{background:#fff;border:1px solid var(--line);color:var(--sub)}
+/* 고른 것이 없을 때 눌러도 소용없다는 것이 보여야 합니다.
+   .btn:disabled 하나만 두면 line · ghost · danger 가 뒤에 와서 이깁니다. */
+.btn.line:disabled,.btn.ghost:disabled,.btn.danger:disabled,.btn.ok:disabled{
+  background:var(--fill);color:var(--dim);border-color:transparent;transform:none}
 .btnrow{display:flex;gap:10px;margin-top:16px}
 .btnrow .btn{flex:1}
 
@@ -229,6 +233,14 @@ select.inp{
 .selbar .n{font-size:.86rem;font-weight:800}
 .selbar .s{font-size:.78rem;color:var(--mut);font-weight:600;margin-top:1px}
 .selbar .btn{width:auto;height:44px;padding:0 18px;font-size:.9rem;border-radius:12px}
+/* 할 일이 넷이라 한 줄에 안 들어갑니다. 세는 줄과 누르는 줄을 나눕니다.
+   버튼은 폭을 똑같이 나눠 가집니다 — 좁은 폰에서 하나만 삐져나오지 않게. */
+.selbar .in.top{padding-bottom:2px}
+.selbar .in.acts{padding-top:0;gap:7px}
+.selbar .in.acts .btn{flex:1 1 0;min-width:0;padding:0 6px;height:42px;font-size:.85rem}
+/* 네 개가 나란히 서므로 못 누르는 것끼리도 같은 색이어야 합니다.
+   기본 .btn:disabled 는 조금 더 진해서 하나만 튀어 보였습니다. */
+.selbar .in.acts .btn:disabled{background:var(--fill);color:var(--dim);border-color:transparent}
 
 .empty{text-align:center;padding:60px 20px;color:var(--mut)}
 .empty .big{font-size:1.05rem;font-weight:700;color:var(--sub);margin-bottom:6px}
@@ -663,7 +675,7 @@ nav.tabs button:active{opacity:.6}
     <section class="page" id="p-list">
       <div class="titlerow">
         <h1 class="ptitle">프로젝트</h1>
-        <button class="btn sm line" id="selToggle" hidden>묶어서 청구</button>
+        <button class="btn sm line" id="selToggle" hidden>고르기</button>
       </div>
       <p class="psub" id="listSub">—</p>
       <div class="search">
@@ -996,14 +1008,18 @@ nav.tabs button:active{opacity:.6}
   </main>
 
   <div class="selbar" id="selBar" hidden>
-    <div class="in">
+    <div class="in top">
       <button class="btn sm ghost" id="selAll" style="width:auto;padding:0 13px;height:40px">전체</button>
       <div class="m">
         <div class="n" id="selCount">0건</div>
         <div class="s" id="selSum">—</div>
       </div>
-      <button class="btn line" id="selSettle" style="margin-right:6px">정산</button>
+    </div>
+    <div class="in acts">
+      <button class="btn line" id="selHide">숨기기</button>
+      <button class="btn line" id="selSettle">정산</button>
       <button class="btn" id="selBill">청구서</button>
+      <button class="btn danger" id="selDel">지우기</button>
     </div>
   </div>
 
@@ -1652,6 +1668,7 @@ function fromRow(r, m){
     photos:r.photos||[], orderPhoto:r.order_photo||null, memo:M.memo||'',
     arrivals:Array.isArray(r.arrivals)?r.arrivals:[],
     token:r.share_token||null, shareOn:!!r.share_on,
+    hiddenOn:r.hidden_on||null,
     updatedAt:r.updated_at
   };
 }
@@ -1690,6 +1707,7 @@ const PRJ_COL = {
   arrivals:   ['arrivals',          p=>p.arrivals||[]],
   token:      ['share_token',       p=>p.token||null],
   shareOn:    ['share_on',          p=>!!p.shareOn],
+  hiddenOn:   ['hidden_on',         p=>p.hiddenOn||null],
 };
 /* 금액 표로 가는 이름들. projects 로 보내면 안 됩니다. */
 const MONEY_KEYS = ['price','vat','extras','costs','billedOn','taxedOn','paidOn','memo'];
@@ -2102,7 +2120,16 @@ async function removePhoto(path){
 
 /* ═════════ 프로젝트 목록 ═════════ */
 /* 견적서는 같은 표에 들어 있지만 프로젝트 목록에는 서지 않습니다 */
-const onlyProjects = () => prjs.filter(p=>p.kind!=='quote');
+/* ───────── 숨기기 ─────────
+   접수는 했는데 고객사가 미뤄 달라고 한 건입니다. 지울 수는 없고,
+   그렇다고 목록 맨 위에 두면 오늘 할 일이 안 보입니다.
+   보류(status='hold')와 다릅니다 — 보류는 목록에 남아 있습니다.
+   숨긴 것은 목록 · 칩 숫자 · 현황 · 미수금에서 모두 빠지고
+   "숨김" 칩에서만 보입니다. 언제든 되돌립니다. */
+const isHidden = p => !!p.hiddenOn;
+/* 살아 있는 프로젝트 — 화면 숫자를 세는 곳은 전부 이것을 봅니다 */
+const onlyProjects = () => prjs.filter(p=>p.kind!=='quote' && !isHidden(p));
+const hiddenPrjs   = () => prjs.filter(p=>p.kind!=='quote' && isHidden(p));
 const onlyQuotes   = () => prjs.filter(p=>p.kind==='quote');
 
 /* 검색어에만 걸어 봅니다. 칩 숫자는 이 결과를 세야
@@ -2116,6 +2143,9 @@ function matchesQ(p){
 }
 function matches(p){
   if(!matchesQ(p)) return false;
+  /* 숨김 칩을 눌렀을 때만 숨긴 것이 보입니다. 그 밖에는 어디에도 안 나옵니다. */
+  if(filterStat==='hidden') return isHidden(p);
+  if(isHidden(p)) return false;
   if(filterStat==='unpaid') return isUnpaid(p);
   return !filterStat || p.status===filterStat;
 }
@@ -2136,6 +2166,15 @@ function renderChips(){
   if(canSee('settle')){
     counts.unpaid=live.filter(isUnpaid).length;
     items=items.concat([['unpaid','미수금']]);
+  }
+  /* 숨긴 것이 있을 때만 칩을 내놓습니다. 늘 붙어 있으면
+     한 번도 안 쓰는 회사에게는 자리만 차지합니다.
+     지금 숨김을 보고 있는 중이면 하나도 안 남아도 칩을 남겨 둡니다 —
+     칩이 사라지면 어디를 보고 있었는지 알 수 없게 됩니다. */
+  const hid=hiddenPrjs().filter(matchesQ).length;
+  if(hid || filterStat==='hidden'){
+    counts.hidden=hid;
+    items=items.concat([['hidden','숨김']]);
   }
   $('statChips').innerHTML=items.map(([k,ko])=>
     '<button class="chip" data-s="'+k+'" aria-pressed="'+(filterStat===k)+'">'+
@@ -2176,6 +2215,7 @@ function prjCard(p){
       '<span>'+(p.qty?money(p.qty)+esc(p.unit):'수량 미정')+'</span>'+
       '<span class="sp"></span>'+
       (arrivalWaiting(p)?'<span class="badge wait">입고 '+arrivalCount(p).in+'/'+arrivalCount(p).all+'</span>':'')+
+      (isHidden(p)?'<span class="badge">숨김 '+esc(shortDay(p.hiddenOn))+'</span>':'')+
       (p.shareOn?'<span class="badge share">공유 중</span>':'')+
       (canSee('settle')&&p.kind!=='quote'&&(p.status==='done'||p.billedOn)?settleDots(p):'')+
       '<span>'+due+'</span>'+
@@ -2197,6 +2237,12 @@ function renderList(){
     box.innerHTML='<div class="empty"><div class="big">아직 프로젝트가 없습니다</div>'+
       '<p>아래 <b>새로 만들기</b> 에서 첫 건을 넣어 보세요.<br>'+
       '프로젝트명과 고객사만 있어도 시작됩니다.</p></div>';
+  }else if(!list.length && filterStat==='hidden'){
+    box.innerHTML = qs
+      ? '<div class="empty"><div class="big">찾는 것이 없습니다</div>'+
+        '<p>숨긴 것 중에는 없습니다. 검색어를 지워 보세요.</p></div>'
+      : '<div class="empty"><div class="big">숨긴 프로젝트가 없습니다</div>'+
+        '<p>프로젝트를 열고 <b>더보기 → 목록에서 숨기기</b> 하면 여기로 옵니다.</p></div>';
   }else if(!list.length){
     box.innerHTML='<div class="empty"><div class="big">찾는 것이 없습니다</div><p>검색어나 상태를 바꿔 보세요.</p></div>';
   }else{
@@ -2206,10 +2252,14 @@ function renderList(){
   const run=onlyProjects().filter(p=>p.status==='running').length;
   const late=onlyProjects().filter(p=>p.status!=='done'&&daysLeft(p.dueOn)!==null&&daysLeft(p.dueOn)<0).length;
   if(selMode) paintSel();
-  $('listSub').innerHTML='진행 중 '+run+'건'+(late?' · <b style="color:var(--red)">납기 지남 '+late+'건</b>':'');
+  $('listSub').innerHTML = filterStat==='hidden'
+    ? '미뤄 둔 건입니다. 목록 · 현황 · 미수금 어디에도 안 나옵니다.'
+    : '진행 중 '+run+'건'+(late?' · <b style="color:var(--red)">납기 지남 '+late+'건</b>':'');
 }
-/* ═════════ 여러 건 묶어서 청구 ═════════
-   월말에 한 거래처에 몰아 청구하는 자리입니다.
+/* ═════════ 여러 건 골라서 한꺼번에 ═════════
+   월말에 한 거래처에 몰아 청구하려고 만든 자리인데,
+   숨기기와 지우기까지 여기서 합니다. 그래서 버튼 이름을
+   "묶어서 청구" 에서 "고르기" 로 바꿨습니다 — 하는 일이 하나가 아닙니다.
    검색으로 거래처를 걸러 놓고 고르면 편합니다.
    카드를 길게 눌러도 고르기가 켜집니다. */
 let selMode=false;
@@ -2238,7 +2288,7 @@ function setSelMode(on){
   selMode=!!on;
   if(selMode) armBack();
   if(!selMode) selIds.clear();
-  $('selToggle').textContent = selMode ? '그만두기' : '묶어서 청구';
+  $('selToggle').textContent = selMode ? '그만두기' : '고르기';
   $('selBar').hidden = !selMode;
   document.body.classList.toggle('picking', selMode);
   renderList(); paintSel();
@@ -2257,9 +2307,71 @@ function paintSel(){
   $('selSum').textContent = !list.length ? '카드를 눌러 고르세요'
     : clients.length>1 ? '거래처가 '+clients.length+'곳 섞여 있습니다'
     : (clients[0]||'거래처 미정')+' · '+periodLabel(list);
+  const hid = filterStat==='hidden';
+  /* 숨김 목록에서 고르면 "되돌리기" 입니다. 버튼을 하나 더 두는 대신
+     보고 있는 곳에 따라 하는 일을 바꿉니다. */
+  $('selHide').textContent = hid ? '되돌리기' : '숨기기';
+  /* 숨긴 것은 청구·정산할 일이 없습니다. 눌러 봐야 헷갈리기만 합니다. */
+  $('selBill').hidden = hid;
+  $('selSettle').hidden = hid;
   $('selBill').disabled = !list.length;
   $('selSettle').disabled = !list.length;
+  $('selHide').disabled = !list.length;
+  $('selDel').disabled = !list.length;
 }
+
+/* ───── 여러 건 숨기기 · 되돌리기 ─────
+   한 번에 한 줄씩 고치지 않고 in() 으로 묶어 보냅니다.
+   스무 건을 고르면 스무 번 오갈 이유가 없습니다. */
+$('selHide').addEventListener('click',async ()=>{
+  const list=selList(); if(!list.length){ toast('먼저 고르세요'); return }
+  const back = filterStat==='hidden';
+  if(!back){
+    const 미수 = canSee('settle') ? list.filter(isUnpaid).length : 0;
+    const msg = (미수 ? '고른 것 중 '+미수+'건은 아직 수금 전입니다.\n숨기면 미수금 목록에서도 빠집니다.\n\n'
+                      : '')+list.length+'건을 목록에서 숨길까요?\n숨김 칩에서 언제든 되돌립니다.';
+    if(!confirm(msg)) return;
+  }
+  const val = back ? null : todayKey();
+  $('selHide').disabled=true;
+  const {error}=await sb.from('projects').update({hidden_on:val})
+    .in('id',list.map(p=>p.id));
+  $('selHide').disabled=false;
+  if(error){ toast('바꾸지 못했습니다: '+String(error.message).slice(0,50)); return }
+  list.forEach(p=>{ p.hiddenOn=val });
+  setSelMode(false);
+  /* 되돌렸는데 숨김 칩만 보고 있으면 빈 화면이 남습니다. 목록으로 데려옵니다. */
+  if(back && !hiddenPrjs().length) filterStat='';
+  renderChips(); renderList();
+  toast(list.length+(back?'건을 목록으로 되돌렸습니다':'건을 숨겼습니다'));
+});
+
+/* ───── 여러 건 지우기 ─────
+   지운 것은 deleted 로 표시만 하고 줄은 남겨 둡니다(단건 지우기와 같습니다).
+   공유 링크는 함께 막습니다 — 안 그러면 지운 프로젝트를 고객사가 계속 봅니다. */
+$('selDel').addEventListener('click',async ()=>{
+  const list=selList(); if(!list.length){ toast('먼저 고르세요'); return }
+  const 공유 = list.filter(p=>p.shareOn).length;
+  const 미수 = canSee('settle') ? list.filter(isUnpaid).length : 0;
+  const msg = list.length+'건을 지울까요?\n공정 기록도 함께 사라집니다.'+
+    (공유 ? '\n고객사 공유 링크 '+공유+'개도 막힙니다.' : '')+
+    (미수 ? '\n\n※ 아직 수금 전인 건이 '+미수+'개 있습니다.' : '')+
+    '\n\n되돌릴 수 없습니다.';
+  if(!confirm(msg)) return;
+  const ids=list.map(p=>p.id);
+  $('selDel').disabled=true;
+  const {error}=await sb.from('projects').update({deleted:true,share_on:false}).in('id',ids);
+  $('selDel').disabled=false;
+  if(error){ toast('지우지 못했습니다: '+String(error.message).slice(0,50)); return }
+  const gone=new Set(ids);
+  prjs=prjs.filter(p=>!gone.has(p.id));
+  allSteps=allSteps.filter(s=>!gone.has(s.projectId));
+  if(gone.has(curId)) closeDetail();
+  setSelMode(false);
+  if(filterStat==='hidden' && !hiddenPrjs().length) filterStat='';
+  renderChips(); renderList();
+  toast(ids.length+'건을 지웠습니다');
+});
 $('selToggle').addEventListener('click',()=>setSelMode(!selMode));
 $('selAll').addEventListener('click',()=>{
   const shown=prjs.filter(matches);
@@ -2922,6 +3034,7 @@ function renderDetail(){
     '<div class="tags">'+
       '<span class="badge '+st.cls+'">'+st.ko+'</span>'+
       (p.code?'<span class="badge">'+esc(p.code)+'</span>':'')+
+      (isHidden(p)?'<span class="badge">숨김 '+esc(shortDay(p.hiddenOn))+'</span>':'')+
       (p.shareOn?'<span class="badge share">고객사 공유 중</span>':'')+
       (p.status!=='done'&&left!==null&&left<0?'<span class="badge late">납기 '+(-left)+'일 지남</span>':'')+
     '</div>'+
@@ -3512,9 +3625,16 @@ $('d-share').addEventListener('click',()=>{
 /* ═════════ 더보기 ═════════ */
 $('d-more').addEventListener('click',()=>{
   const p=curPrj(); if(!p) return;
+  const sub=t=>'<span style="display:block;font-size:.78rem;color:var(--mut);font-weight:600;margin-top:2px">'+t+'</span>';
   $('moreList').innerHTML=
     '<button class="grow" data-act="dup"><span class="nm">같은 사양으로 새로 만들기</span></button>'+
-    '<button class="grow" data-act="hold"><span class="nm">'+(p.status==='hold'?'보류 풀기':'보류로 두기')+'</span></button>'+
+    '<button class="grow" data-act="hold"><span class="nm">'+(p.status==='hold'?'보류 풀기':'보류로 두기')+
+      sub('목록에는 그대로 남습니다')+'</span></button>'+
+    (isHidden(p)
+      ? '<button class="grow" data-act="hide"><span class="nm">목록으로 되돌리기'+
+          sub(esc(shortDay(p.hiddenOn))+'에 숨겼습니다')+'</span></button>'
+      : '<button class="grow" data-act="hide"><span class="nm">목록에서 숨기기'+
+          sub('미뤄진 건을 치워 둡니다. 숨김 칩에서 되돌립니다')+'</span></button>')+
     '<button class="grow" data-act="del"><span class="nm" style="color:var(--red)">이 프로젝트 지우기</span></button>';
   $('moreList').querySelectorAll('[data-act]').forEach(b=>{
     b.addEventListener('click',()=>moreAct(b.dataset.act));
@@ -3528,9 +3648,31 @@ async function moreAct(act){
     await savePrj({status:p.status==='hold'?'running':'hold'});
     closeSheetEl('sheetMore'); return;
   }
+  if(act==='hide'){
+    if(isHidden(p)){
+      if(!await savePrj({hiddenOn:null},true)) return;
+      closeSheetEl('sheetMore');
+      /* 되돌린 것을 곧바로 보여 줍니다. 숨김만 보고 있으면 그 자리에서
+         사라져서 어디로 갔는지 알 수 없습니다. */
+      if(filterStat==='hidden' && !hiddenPrjs().length){ filterStat=''; renderChips(); renderList() }
+      toast('목록으로 되돌렸습니다');
+      return;
+    }
+    /* 수금 전인 건을 숨기면 미수금 목록에서도 빠집니다. 돈 문제라 미리 말합니다. */
+    const warn = (canSee('settle') && isUnpaid(p))
+      ? '이 건은 아직 수금 전입니다.\n숨기면 미수금 목록에서도 빠집니다.\n\n계속할까요?'
+      : '이 프로젝트를 목록에서 숨길까요?\n숨김 칩에서 언제든 되돌립니다.';
+    if(!confirm(warn)) return;
+    if(!await savePrj({hiddenOn:todayKey()},true)) return;
+    closeSheetEl('sheetMore'); closeDetail();
+    renderChips(); renderList();
+    toast('숨겼습니다. 숨김 칩에서 되돌릴 수 있습니다');
+    return;
+  }
   if(act==='dup'){
     const c={...p,id:uid(),owner:me.id,name:(p.name||'')+' (사본)',status:'ready',
-             startedOn:todayKey(),doneOn:null,photos:[],token:null,shareOn:false,memo:''};
+             startedOn:todayKey(),doneOn:null,photos:[],token:null,shareOn:false,memo:'',
+             hiddenOn:null};
     const {error}=await sb.from('projects').insert(toRow(c));
     if(error){ toast('만들지 못했습니다'); return }
     await saveMoney(c);
