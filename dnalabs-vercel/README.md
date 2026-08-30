@@ -19,19 +19,22 @@ dnalabs.kr/call   →  Re:Call
 합니다(rewrite — 주소는 안 바뀌고 내용만 가져옵니다).
 GitHub Pages 배포 방식도 그대로입니다.
 
-## 올릴 것 — 세 가지
+## 두 파일은 이미 넣어 두었습니다
 
-1. **`vercel.json` 의 `rewrites` 두 줄**
-   지금 쓰시는 `web/vercel.json` 에 `rewrites` 항목을 더하세요.
-   이 폴더의 `vercel.json` 은 그 두 줄만 담은 예시입니다.
-   **기존 `headers` · `cleanUrls` 설정은 지우지 말고 그대로 두세요.**
+`~/Desktop/network-dna/web/` 에 그대로 들어가 있습니다.
+**손으로 합치지 마세요** — 손으로 붙이다 `"rewrites"` 가 두 번 들어가
+JSON 이 깨진 적이 있습니다. 같은 키가 두 번 나오면 Vercel 이 거부합니다.
 
-2. **`bind.webmanifest`** — 홈 화면에 깔 때 쓰는 설명서입니다.
-   Vercel 이 내보내는 폴더(`web/`) 맨 위에 그대로 두면
-   `dnalabs.kr/bind.webmanifest` 로 열립니다.
-   Re:Call 은 아직 홈 화면 설치를 안 쓰므로 `call.webmanifest` 는 없습니다.
+| `web/vercel.json` | 원래 있던 `headers`·`redirects`·`cleanUrls` 는 그대로 두고 맨 아래 `rewrites` 만 더했습니다. 원본은 `vercel.json.원본백업` |
+|---|---|
+| `web/bind.webmanifest` | 홈 화면 설치용. `dnalabs.kr/bind.webmanifest` 로 열립니다. Re:Call 은 아직 설치를 안 쓰므로 `call.webmanifest` 는 없습니다 |
 
-3. 올린 뒤 **`https://dnalabs.kr/bind`** 와 **`/call`** 을 열어 보세요.
+이 폴더의 `vercel.json` 은 **넣은 것과 같은 파일**입니다. 대조용으로 둡니다.
+
+## 하실 일
+
+`web/` 을 Vercel 에 배포하고 **`https://dnalabs.kr/bind`** 와 **`/call`** 을 열어 보세요.
+주소창이 그대로 `dnalabs.kr/bind` 면 성공입니다.
 
 ## 이미 해 둔 것
 
