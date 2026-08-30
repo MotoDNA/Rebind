@@ -1,0 +1,7 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
+    { "source": "/bind", "destination": "https://rebind.dnalabs.kr/bindery.html" },
+    { "source": "/call", "destination": "https://recall.dnalabs.kr/network-dna.html" }
+  ]
+}
