@@ -469,6 +469,9 @@ nav.tabs button:active{opacity:.6}
 #gate .pick #pick-recall.on b em{color:#2ED3A7}
 #gate .pick #pick-restore.on b em{color:#F5A524}
 
+#gate .gohome{display:inline-block;margin-top:14px;font-size:.8rem;font-weight:600;
+  color:#6B7684;text-decoration:none;transition:color .15s}
+#gate .gohome:hover{color:#B0B8C1}
 #gate .othernote{font-size:.88rem;color:#8B95A1;line-height:1.65;margin:0 0 16px;text-align:center}
 #gate .othernote b{color:#fff}
 #gate h1{font-size:1.75rem;font-weight:800;letter-spacing:-.04em;margin:0 0 8px;line-height:1.3}
@@ -532,6 +535,19 @@ nav.tabs button:active{opacity:.6}
 /* 두 칸으로 펼친 화면에서는 이 줄이기가 필요 없습니다 — 세로로 쌓지 않으니
    1366×700 에서도 562px 이면 다 들어갑니다. 그런데도 줄이면 왼쪽 마크만
    작아져서 오른쪽 칸에 눌린 것처럼 보입니다. 그래서 한 칸일 때만 줄입니다. */
+/* 좁은 화면 — 홈페이지 링크가 늘어난 만큼 여백을 조입니다.
+   한 칸으로 서면 토글 다음이 곧 제목이라, 링크가 제목에 달라붙습니다.
+   gleft 에 아래 여백을 주어 떼어 놓고, 대신 위쪽 간격들을 줄여
+   844px 폰에서 스크롤이 안 생기게 맞췄습니다. */
+@media (max-width:999px){
+  #gate .mark{margin-bottom:14px}
+  #gate .pick{margin-bottom:14px}
+  #gate .gohome{margin-top:8px}
+  #gate .gleft{margin-bottom:16px}
+  #gate p.sub{margin-bottom:18px}
+  #gate .field{margin-bottom:12px}
+}
+
 @media (max-height:790px) and (max-width:899px){
   #gate .mark{gap:7px;margin-bottom:16px}
   #gate .mark .logo{width:75px;height:75px}
@@ -748,6 +764,10 @@ nav.tabs button:active{opacity:.6}
         <i>가맹점 발주<br>발주부터 월정산까지</i>
       </button>
     </div>
+    <!-- 회사 홈페이지로. 로그인 화면에서 "여기가 어느 회사인가" 를 확인하거나
+         소개를 보러 갈 길이 없었습니다. 눈에 띄지 않게 글자로만 둡니다. -->
+    <a class="gohome" href="https://dnalabs.kr/">DNA Labs 홈페이지 &rsaquo;</a>
+
 
    </div>
    <div class="gright">
@@ -1723,7 +1743,15 @@ async function loadMe(){
      보는 것은 막힌 채로 앱에 들어가 빈 화면을 보게 두지 않으려는 것입니다 —
      그러면 자료가 사라진 줄 압니다. */
   const apps = (co && Array.isArray(co.apps)) ? co.apps : [];
-  if(!apps.includes(APP_KEY)){
+  /* 고르는 화면에서는 "셋 중 하나라도 산 회사인가" 만 봅니다.
+     어디로 보낼지는 부른 쪽이 정합니다 — 여기서 바로 넘기면 방금 고른 것이
+     무시되고 늘 첫 번째 서비스로 갑니다. 실제로 그렇게 됐습니다. */
+  if(PICKER && !APPS.some(a=>apps.includes(a))){
+    await sb.auth.signOut(); me=null;
+    return {ok:false, wrongApp:true,
+      error:(co&&co.name?co.name+' 은(는) ':'이 회사는 ')+'쓸 수 있는 서비스가 없습니다. 담당자에게 문의해 주세요.'};
+  }
+  if(!PICKER && !apps.includes(APP_KEY)){
     /* 한 지붕 아래면 산 앱이 바로 옆에 있습니다. 내쫓지 않고 그리로 보냅니다 —
        흔적을 나눠 쓰므로 그쪽에서 다시 묻지 않습니다.
        왜 옮겨졌는지 한 마디 남깁니다. 아무 말 없이 딴 화면이 뜨면
@@ -4974,7 +5002,19 @@ const BOUNCE_KEY='dnalabs-bounced';
 const AWAY    ={rebind:'https://rebind.dnalabs.kr/',
                 recall:'https://recall.dnalabs.kr/',
                 restore:'https://restore.dnalabs.kr/'};
-const underOneRoof = ONE_ROOF[APP_KEY] === location.pathname.replace(/\/+$/,'');
+/* ───── 고르는 화면 (dnalabs.kr/reservice) ─────
+   주소가 셋으로 나뉘어 있어 "어디로 들어가라" 를 말하기가 어려웠습니다.
+   외우는 주소를 하나로 두려고 만든 자리입니다.
+
+   여기서는 어느 서비스도 "우리 것" 이 아닙니다. 고르고 로그인하면
+   그 서비스로 보냅니다. 로그인한 흔적은 한 지붕이라 그대로 따라갑니다.
+
+   ⚠ 새 로그인 화면을 따로 만들지 않았습니다. 같은 것이 여러 벌이 되면
+     반드시 어긋납니다 — 오늘 고친 것들이 전부 그래서 생겼습니다.
+     이 파일이 그대로 쓰이되, 자기가 고르는 화면임을 알 뿐입니다.
+     그래서 여기서는 Re:Bind 화면이 뜨는 일이 없습니다. 늘 넘어갑니다. */
+const PICKER = location.pathname.replace(/\/+$/,'') === '/reservice';
+const underOneRoof = PICKER || ONE_ROOF[APP_KEY] === location.pathname.replace(/\/+$/,'');
 const urlFor = a => underOneRoof ? ONE_ROOF[a] : AWAY[a];
 /* 이 회사가 산 것 중 여기가 아닌 첫 번째 서비스 */
 const otherOwned = apps => APPS.find(a => a!==APP_KEY && (apps||[]).includes(a));
@@ -4991,7 +5031,7 @@ function loadPick(){
 function setPick(app,remember){
   pickApp = APPS.includes(app) ? app : APP_KEY;
   if(remember!==false){ try{ localStorage.setItem(PICK_KEY,pickApp) }catch(e){} }
-  const mine = pickApp===APP_KEY;
+  const mine = !PICKER && pickApp===APP_KEY;
   const pick=$('appPick');
   pick.classList.remove('i0','i1','i2');
   pick.classList.add('i'+APPS.indexOf(pickApp));
@@ -5036,7 +5076,7 @@ function showGate(){
      /call 을 쳐서 들어왔는데 지난번에 고른 /store 가 떠 있으면,
      주소를 치고 들어온 뜻이 무시됩니다. 실제로 그렇게 헷갈렸습니다.
      기억은 옛 주소에서만 씁니다 — 거기는 주소가 어느 서비스인지 안 알려 줍니다. */
-  setPick(underOneRoof ? APP_KEY : loadPick(), false);
+  setPick((underOneRoof && !PICKER) ? APP_KEY : loadPick(), false);
 }
 function hideGate(){ $('gate').hidden=true; lockScroll() }
 function gateMsg(kind,text){
@@ -5055,13 +5095,15 @@ $('gateForm').addEventListener('submit',async e=>{
   $('g-pw').value='';
   /* 한 지붕 아래에서 저쪽을 골라 두었으면 그대로 넘겨 줍니다.
      흔적을 나눠 쓰므로 그쪽에서 다시 묻지 않습니다. */
-  if(pickApp!==APP_KEY){
+  if(PICKER || pickApp!==APP_KEY){
     if((me.apps||[]).includes(pickApp)){ location.href=urlFor(pickApp); return }
     /* 저쪽은 안 산 회사입니다. 여기는 쓸 수 있으니 로그아웃까지 하지 않고,
        토글만 되돌려 둡니다 — 한 번 더 누르면 들어갑니다. */
     const 고른것=APP_KO[pickApp];
-    setPick(APP_KEY);
-    gateMsg('err', (me.companyName||'이 회사')+' 은(는) '+고른것+' 를 쓰는 회사가 아닙니다. '+APP_KO[APP_KEY]+' 로 들어가시면 됩니다.');
+    const 산것=(me.apps||[]).find(a=>APPS.includes(a));
+    setPick(산것 || APP_KEY);
+    gateMsg('err', (me.companyName||'이 회사')+' 은(는) '+고른것+' 를 쓰는 회사가 아닙니다.'+
+      (산것 ? ' '+APP_KO[산것]+' 로 들어가시면 됩니다.' : ' 담당자에게 문의해 주세요.'));
     return;
   }
   await afterLogin();
@@ -5291,6 +5333,11 @@ unitBind('n-unit','n-unitTxt');
     return;
   }
   const r=await loadMe();
+  if(r.ok && PICKER){
+    /* 고르는 화면은 머무는 곳이 아닙니다. 이미 로그인돼 있으면 그냥 보냅니다. */
+    location.replace(ONE_ROOF[APPS.find(a=>(me.apps||[]).includes(a))]);
+    return;
+  }
   if(r.ok){ await afterLogin() }
   else{
     if(r.moved) return;          // 옆 앱으로 넘어가는 중입니다. 화면을 그리지 않습니다

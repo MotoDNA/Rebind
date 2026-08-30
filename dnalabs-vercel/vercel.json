@@ -62,6 +62,10 @@
   ],
   "rewrites": [
     {
+      "source": "/reservice",
+      "destination": "https://rebind.dnalabs.kr/bindery.html"
+    },
+    {
       "source": "/bind",
       "destination": "https://rebind.dnalabs.kr/bindery.html"
     },
