@@ -219,6 +219,24 @@ select.inp{
 .setrow input[type=date]{width:132px;height:38px;padding:0 10px;border:1px solid var(--line);
   border-radius:10px;background:var(--fill2);font-size:.82rem;font-weight:600}
 
+/* 입고 줄(.arow)만 칸이 넷입니다 — 스위치·이름·날짜·빼기.
+   390px 폰에서 이름 칸에 51px 밖에 안 남아 "표지 용지" 가 두 줄로 깨지고
+   그 아래 사양 칸("스노우지 250g")은 글자가 잘렸습니다.
+
+   날짜 칸은 못 줄입니다. 크롬이 "2026. 08. 18." 을 통째로 그리고 달력
+   단추까지 붙여서, 132px 밑으로 내리면 날짜가 잘립니다.
+
+   그래서 줄을 넘기게 둡니다. 자리가 넉넉하면 지금처럼 한 줄에 남고,
+   모자랄 때만 날짜와 ✕ 가 아랫줄 오른쪽으로 내려갑니다. */
+.setrow.arow{flex-wrap:wrap;row-gap:8px}
+/* 130px 을 기준으로 잡아 둡니다. 이름 칸 안에 사양 입력칸이 들어 있어서
+   기준을 안 주면 그 칸이 제 폭(스무 글자쯤)을 주장하고, 옆의 "대기" 가
+   눌려 "대/기" 로 깨집니다. */
+.setrow.arow > span:not(.when){flex:1 1 130px}
+.setrow.arow > .when{flex:0 0 auto}
+.setrow.arow > input[type=date],
+.setrow.arow > .when{margin-left:auto}
+
 /* 여러 건 골라 한 장으로 청구하기 */
 .prj .pick{flex:0 0 auto;width:24px;height:24px;border-radius:50%;border:2px solid var(--line);
   display:flex;align-items:center;justify-content:center;margin-top:2px}
@@ -3280,7 +3298,7 @@ function renderDetail(){
       // 용지 이름과 평량(250g 같은 것)은 이 칸에 함께 적습니다.
       // 적을 데가 여기밖에 없어서 사양이 비어 있어도 바로 칠 수 있게 열어 둡니다.
       h+=ar.map((a,i)=>
-        '<div class="setrow">'+
+        '<div class="setrow arow">'+
           '<input class="sw" type="checkbox" data-ar="'+i+'"'+(a.on?' checked':'')+' aria-label="'+esc(a.n||'')+'">'+
           '<span>'+esc(a.n||'자재')+
             '<input class="arsp" data-ars="'+i+'" value="'+esc(a.s||'')+'" '+
