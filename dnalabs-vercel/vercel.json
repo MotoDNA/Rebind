@@ -68,6 +68,10 @@
     {
       "source": "/call",
       "destination": "https://recall.dnalabs.kr/network-dna.html"
+    },
+    {
+      "source": "/store",
+      "destination": "https://restore.dnalabs.kr/store.html"
     }
   ]
 }
