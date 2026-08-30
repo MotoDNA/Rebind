@@ -4965,7 +4965,12 @@ const urlFor = a => underOneRoof ? ONE_ROOF[a] : AWAY[a];
 const otherOwned = apps => APPS.find(a => a!==APP_KEY && (apps||[]).includes(a));
 
 function loadPick(){
-  try{ const v=localStorage.getItem(PICK_KEY); if(v==='rebind'||v==='recall') return v }catch(e){}
+  /* APPS 로 검사합니다. 열쇠말을 손으로 적어 두면 서비스가 늘 때마다
+     여기를 같이 못 고쳐서, 고른 것이 조용히 무시됩니다.
+     실제로 Re:Store 가 생겼을 때 여기만 'rebind'|'recall' 로 남아 있어
+     /bind 에서 Re:Store 를 골라 두어도 다음에 오면 잊혔습니다.
+     (Re:Call 쪽은 이미 이렇게 고쳐져 있었습니다) */
+  try{ const v=localStorage.getItem(PICK_KEY); if(APPS.includes(v)) return v }catch(e){}
   return APP_KEY;
 }
 function setPick(app,remember){
