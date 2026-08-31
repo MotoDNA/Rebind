@@ -139,6 +139,28 @@ select.inp{
   padding-right:38px;cursor:pointer;
 }
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* 접어 두는 칸 — 지금 꼭 필요하지 않은 것을 숨겨 둡니다.
+   폼을 짧게 두려고 아예 빼 버리면 있는 줄도 모릅니다. */
+details.more{margin-top:4px;border-top:1px solid var(--line);padding-top:12px}
+details.more > summary{
+  list-style:none;cursor:pointer;font-size:.88rem;font-weight:700;color:var(--sub);
+  display:flex;align-items:center;gap:6px;padding:4px 0;
+}
+details.more > summary::-webkit-details-marker{display:none}
+details.more > summary::before{
+  content:"";width:7px;height:7px;flex:none;
+  border-right:2px solid var(--dim);border-bottom:2px solid var(--dim);
+  transform:rotate(-45deg);transition:transform .15s;margin-right:2px;
+}
+details.more[open] > summary::before{transform:rotate(45deg)}
+details.more > summary .dim{font-weight:600;color:var(--dim)}
+details.more > *:not(summary){margin-top:12px}
+
+/* 칸 밑에 붙는 한 줄 — 다 적었는지, 틀렸는지 */
+.fnote{margin:6px 0 0;font-size:.78rem;font-weight:600;color:var(--mut)}
+.fnote.ok{color:var(--green)}
+.fnote.bad{color:var(--red)}
 .row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 
 .btn{
@@ -913,6 +935,40 @@ nav.tabs button:active{opacity:.6}
           <label for="n-code">발주번호</label>
           <input id="n-code" class="inp" placeholder="선택">
         </div>
+
+        <!-- 세금계산서용 칸은 접어 둡니다. 일을 시작할 때 필요한 값이 아니라
+             청구할 때 필요한 값이라, 펼쳐 두면 새 프로젝트 만들기가 무거워집니다.
+             한 번 적어 두면 같은 고객사를 다시 고를 때 저절로 따라옵니다. -->
+        <details class="more" id="n-bizMore">
+          <summary>세금계산서 정보 <span class="dim">— 나중에 적어도 됩니다</span></summary>
+          <div class="row2">
+            <div class="field">
+              <label for="n-bizNo">사업자등록번호</label>
+              <input id="n-bizNo" class="inp" inputmode="numeric" placeholder="000-00-00000" maxlength="12">
+              <p class="fnote" id="n-bizNote" hidden></p>
+            </div>
+            <div class="field">
+              <label for="n-ceo">대표자</label>
+              <input id="n-ceo" class="inp" placeholder="예: 홍길동">
+            </div>
+          </div>
+          <div class="row2">
+            <div class="field">
+              <label for="n-bizType">업태</label>
+              <input id="n-bizType" class="inp" placeholder="예: 도소매">
+            </div>
+            <div class="field">
+              <label for="n-bizItem">종목</label>
+              <input id="n-bizItem" class="inp" placeholder="예: 문구">
+            </div>
+          </div>
+          <div class="field">
+            <label for="n-email">세금계산서 받을 이메일</label>
+            <input id="n-email" class="inp" type="email" inputmode="email"
+                   autocapitalize="off" autocorrect="off" spellcheck="false"
+                   placeholder="예: tax@company.co.kr">
+          </div>
+        </details>
       </div>
 
       <div class="card">
@@ -1582,6 +1638,31 @@ function fmtPhone(p){
   if(d.length===10) return d.startsWith('02')?d.slice(0,2)+'-'+d.slice(2,6)+'-'+d.slice(6):d.slice(0,3)+'-'+d.slice(3,6)+'-'+d.slice(6);
   return p||'';
 }
+/* ───── 사업자등록번호 ─────
+   담을 때는 숫자 열 자리만, 보여 줄 때만 000-00-00000 으로 끊습니다.
+   하이픈을 담아 버리면 "1193701707" 과 "119-37-01707" 이 서로 다른 값이 되어
+   같은 회사를 두 번 세게 됩니다. */
+const digits10 = v => digits(v).slice(0,10);
+function fmtBizNo(v){
+  const d = digits10(v);
+  return d.length===10 ? d.slice(0,3)+'-'+d.slice(3,5)+'-'+d.slice(5) : (v||'');
+}
+/* 국세청이 쓰는 검증식입니다. 열 자리 중 마지막 한 자리가 앞의 아홉 자리로
+   정해지기 때문에, 한 자리를 잘못 치면 여기서 걸립니다.
+
+   진짜로 있는 사업자인지, 지금 살아 있는지는 이것으로 알 수 없습니다 —
+   그건 국세청에 물어봐야 압니다. 여기서 잡는 것은 **오타뿐**입니다.
+   그래도 세금계산서를 잘못 끊고 나서 아는 것보다는 낫습니다. */
+function bizNoOk(v){
+  const d = digits10(v);
+  if(d.length !== 10) return false;
+  const w = [1,3,7,1,3,7,1,3,5];
+  let sum = 0;
+  for(let i=0;i<9;i++) sum += Number(d[i]) * w[i];
+  sum += Math.floor(Number(d[8]) * 5 / 10);
+  return (10 - (sum % 10)) % 10 === Number(d[9]);
+}
+
 /* 명세서에 적는 한글 금액 — 위조하기 어렵게 옛 방식대로 적습니다 */
 const HAN=['','일','이','삼','사','오','육','칠','팔','구'];
 const HAN4=['','십','백','천'];
@@ -1875,6 +1956,8 @@ function fromRow(r, m){
     name:r.name||'', code:r.code||'',
     client:r.client_company||'', person:r.client_person||'',
     phone:r.client_phone||'', email:r.client_email||'',
+    bizNo:r.client_biz_no||'', ceo:r.client_ceo||'',
+    bizType:r.client_biz_type||'', bizItem:r.client_biz_item||'',
     qty:r.qty||0, unit:r.unit||'부',
     size:r.spec_size||'', pages:r.spec_pages||null, color:r.spec_color||'',
     paper:r.spec_paper||'', paperCover:r.spec_paper_cover||'', paperInner:r.spec_paper_inner||'',
@@ -1906,6 +1989,13 @@ const PRJ_COL = {
   person:     ['client_person',     p=>p.person||''],
   phone:      ['client_phone',      p=>p.phone||''],
   email:      ['client_email',      p=>p.email||''],
+  /* 공급받는자 정보 — 거래명세서에 그대로 찍히고, 세금계산서에도 그대로 쓰입니다.
+     등록번호는 숫자만 담습니다. 하이픈을 같이 담으면 "1193701707" 과
+     "119-37-01707" 이 서로 다른 값이 되어 같은 회사를 두 번 세게 됩니다. */
+  bizNo:      ['client_biz_no',     p=>digits10(p.bizNo)],
+  ceo:        ['client_ceo',        p=>p.ceo||''],
+  bizType:    ['client_biz_type',   p=>p.bizType||''],
+  bizItem:    ['client_biz_item',   p=>p.bizItem||''],
   qty:        ['qty',               p=>Math.max(0,Math.round(num(p.qty)))],
   unit:       ['unit',              p=>p.unit||'부'],
   size:       ['spec_size',         p=>p.size||''],
@@ -2707,6 +2797,7 @@ let newEditId=null;       // 고치는 중인 견적서
 
 const NEW_MAP={
   'n-name':'name','n-client':'client','n-person':'person','n-phone':'phone','n-code':'code',
+  'n-bizNo':'bizNo','n-ceo':'ceo','n-bizType':'bizType','n-bizItem':'bizItem','n-email':'email',
   'n-qty':'qty','n-size':'size','n-pages':'pages','n-color':'color',
   'n-paperCover':'paperCover','n-paperInner':'paperInner','n-bind':'bind','n-finish':'finish',
   'n-price':'price','n-vat':'vat','n-start':'startedOn','n-due':'dueOn','n-memo':'memo'
@@ -2815,8 +2906,10 @@ function fillNew(src){
   for(const [id,k] of Object.entries(NEW_MAP)){
     if(!$(id)) continue;
     const v=src[k];
-    $(id).value = (v==null || v==='' || v===0) ? '' : v;   // 0 은 빈 칸으로 둡니다
+    $(id).value = (v==null || v==='' || v===0) ? ''        // 0 은 빈 칸으로 둡니다
+                : (k==='bizNo' ? fmtBizNo(v) : v);         // 등록번호만 끊어서
   }
+  if($('n-bizNote')) $('n-bizNote').hidden=true;
   unitSet('n-unit','n-unitTxt', src.unit || '부');
   renderOpts(src.options||[], 'nOptBox');
   costDraft=(src.costs||[]).map(c=>({...c}));
@@ -2829,7 +2922,11 @@ function readNew(){
   for(const [id,k] of Object.entries(NEW_MAP)) o[k] = $(id) ? $(id).value : '';
   return {
     name:o.name.trim(), client:o.client.trim(), person:o.person.trim(), phone:o.phone.trim(),
-    email:'', code:o.code.trim(),
+    /* 세금계산서용 칸. email 은 칸이 없던 시절부터 자리는 있었는데
+       여기서 늘 빈칸으로 덮어쓰고 있었습니다 — 적어도 저장이 안 됐습니다. */
+    email:o.email.trim(), code:o.code.trim(),
+    bizNo:digits10(o.bizNo), ceo:o.ceo.trim(),
+    bizType:o.bizType.trim(), bizItem:o.bizItem.trim(),
     qty:num(o.qty), unit:unitGet('n-unit','n-unitTxt'),
     size:o.size.trim(), pages:num(o.pages)||null, color:o.color.trim(),
     paperCover:o.paperCover.trim(), paperInner:o.paperInner.trim(), paper:'',
@@ -3032,12 +3129,17 @@ function useClient(c){
   $('n-client').value=c;
   if(src){
     // 업체마다 굳어진 사양이 있습니다. 수량과 발주번호만 비워 둡니다.
-    const keep=['person','phone','size','pages','color','paperCover','paperInner','bind','finish','price'];
+    const keep=['person','phone','bizNo','ceo','bizType','bizItem','email',
+                'size','pages','color','paperCover','paperInner','bind','finish','price'];
     for(const [id,k] of Object.entries(NEW_MAP)){
-      if(keep.includes(k) && $(id) && src[k]) $(id).value=src[k];
+      if(keep.includes(k) && $(id) && src[k]) $(id).value = k==='bizNo' ? fmtBizNo(src[k]) : src[k];
     }
     if(src.unit) unitSet('n-unit','n-unitTxt',src.unit);
     if((src.options||[]).length) renderOpts(JSON.parse(JSON.stringify(src.options)),'nOptBox');
+    /* 세금계산서 칸이 채워졌으면 접힌 채로 두지 않습니다 — 접혀 있으면
+       채워진 줄 모르고 다시 적습니다. */
+    const more=$('n-bizMore');
+    if(more && ['bizNo','ceo','bizType','bizItem','email'].some(k=>src[k])) more.open=true;
   }
   hideClientAC();
   toast(src?'지난번 사양까지 채웠습니다':'고객사를 넣었습니다');
@@ -3045,6 +3147,7 @@ function useClient(c){
 $('n-client').addEventListener('focus',()=>paintClientAC(''));
 $('n-client').addEventListener('input',e=>paintClientAC(e.target.value.trim()));
 $('n-client').addEventListener('blur',()=>setTimeout(hideClientAC,180));
+bindBizNo('n-bizNo','n-bizNote');
 document.addEventListener('click',e=>{
   if(!$('clientAC') || $('clientAC').hidden) return;
   if(!e.target.closest('.acwrap')) hideClientAC();
@@ -3356,6 +3459,26 @@ function renderDetail(){
   }
   h+='</div>';
 
+  /* ── 고객사 ──
+     머리글에는 상호 · 담당자 · 연락처만 나옵니다. 세금계산서에 쓸 값이
+     적혀 있는지는 거기서 알 수 없어서, 청구할 때가 되면 확인할 데가 없었습니다.
+     등록번호가 비어 있으면 비어 있다고 눈에 띄게 둡니다. */
+  const 빔='<span style="color:var(--dim)">—</span>';
+  h+='<div class="card"><h3>고객사<span class="sp"></span>'+
+     '<button class="btn sm line" id="editClient">고치기</button></h3><div class="kv">'+
+     '<dt>상호</dt><dd>'+(p.client?esc(p.client):빔)+'</dd>'+
+     '<dt>사업자등록번호</dt><dd>'+
+       (p.bizNo
+         ? esc(fmtBizNo(p.bizNo))+(bizNoOk(p.bizNo)?'':' <span style="color:var(--red);font-weight:700">확인 필요</span>')
+         : '<span style="color:var(--amber);font-weight:700">아직 없습니다</span>')+'</dd>'+
+     '<dt>대표자</dt><dd>'+(p.ceo?esc(p.ceo):빔)+'</dd>'+
+     '<dt>업태 · 종목</dt><dd>'+
+       ([p.bizType,p.bizItem].filter(Boolean).join(' · ')||빔)+'</dd>'+
+     '<dt>담당자</dt><dd>'+(p.person?esc(p.person):빔)+'</dd>'+
+     '<dt>연락처</dt><dd>'+(p.phone?esc(fmtPhone(p.phone)):빔)+'</dd>'+
+     '<dt>이메일</dt><dd>'+(p.email?esc(p.email):빔)+'</dd>'+
+     '</div></div>';
+
   /* ── 제조 상세 ── */
   const L=tradeOf().labels;
   const specRows=[
@@ -3482,6 +3605,9 @@ function renderDetail(){
     b.addEventListener('click',e=>{ e.stopPropagation(); openStep(b.dataset.edit) });
   });
   $('editSpec').addEventListener('click',openSpec);
+  /* 고객사 칸도 같은 시트에서 고칩니다. 시트를 하나 더 만들면
+     같은 칸을 두 군데서 손보게 되고, 한쪽만 고쳐 놓기 쉽습니다. */
+  $('editClient').addEventListener('click',openSpec);
   $('editDates').addEventListener('click',editDates);
   $('addShot').addEventListener('click',addShot);
   $('detailBody').querySelectorAll('[data-rm]').forEach(b=>{
@@ -3681,6 +3807,9 @@ function specFields(){
   return [
     ['name','프로젝트명','text'],['client','고객사','text'],['person','담당자','text'],
     ['phone','연락처','tel'],['code','발주번호','text'],
+    ['bizNo','사업자등록번호','text'],['ceo','대표자','text'],
+    ['bizType','업태','text'],['bizItem','종목','text'],
+    ['email','세금계산서 받을 이메일','email'],
     ['qty',L.qty,'number'],['unit','단위','text'],
     ['size',L.size,'text'],['pages',L.pages,'number'],
     ['color',L.color,'text'],
@@ -3698,20 +3827,60 @@ function openSpec(){
         '<select id="sf-unit" class="inp">'+unitOptions()+'</select>'+
         '<input id="sf-unitTxt" class="inp" placeholder="직접 적으세요 (예: 매)" hidden style="margin-top:8px"></div>';
     }
+    // 등록번호는 숫자로 담고 보여 줄 때만 끊습니다
+    const val = k==='bizNo' ? fmtBizNo(p.bizNo) : (p[k]??'');
     return '<div class="field"><label for="sf-'+k+'">'+esc(ko)+'</label>'+
       '<input id="sf-'+k+'" class="inp'+(t==='number'?' num':'')+'" type="'+t+'"'+
-      (t==='number'?' inputmode="numeric" min="0"':'')+' value="'+esc(p[k]??'')+'"></div>';
+      (t==='number'?' inputmode="numeric" min="0"':'')+
+      (k==='bizNo'?' inputmode="numeric" maxlength="12" placeholder="000-00-00000"':'')+
+      ' value="'+esc(val)+'">'+
+      (k==='bizNo'?'<p class="fnote" id="sf-bizNote" hidden></p>':'')+'</div>';
   }).join('')+
     '<div class="field"><label>그 밖의 옵션</label><div id="optBox"></div>'+
     '<button class="btn line sm" id="sf-addopt" style="width:100%;margin-top:10px">+ 옵션 추가</button></div>';
   unitSet('sf-unit','sf-unitTxt', p.unit || '부');
   unitBind('sf-unit','sf-unitTxt');
+  bindBizNo('sf-bizNo','sf-bizNote');
   renderOpts(p.options||[]);
   $('sf-addopt').addEventListener('click',()=>{
     const list=readOpts(); list.push({label:'',value:''}); renderOpts(list);
   });
   openSheetEl('sheetSpec');
 }
+/* 등록번호 칸 하나를 손봐 줍니다 — 치는 대로 000-00-00000 으로 끊고,
+   열 자리를 다 치면 국세청 검증식으로 오타를 잡아 줍니다.
+
+   막지는 않습니다. 사업자번호가 아직 없는 거래처도 있고, 우리가 아는 것은
+   "이 숫자는 있을 수 없다" 뿐이라 저장 자체를 막을 근거가 못 됩니다.
+   대신 눈에 보이게 해서 지금 고치게 합니다. */
+function bindBizNo(inputId, noteId){
+  const el=$(inputId), note=$(noteId);
+  if(!el) return;
+  const paint=()=>{
+    const d=digits10(el.value);
+    if(!note) return;
+    if(!d.length){ note.hidden=true; return }
+    if(d.length<10){ note.hidden=false; note.className='fnote'; note.textContent='열 자리를 다 적어 주세요 ('+d.length+'/10)'; return }
+    const ok=bizNoOk(d);
+    note.hidden=false;
+    note.className='fnote'+(ok?' ok':' bad');
+    note.textContent = ok ? '번호 형식이 맞습니다'
+                          : '이런 번호는 없습니다 — 한 자리 잘못 적으신 것 같습니다';
+  };
+  el.addEventListener('input',()=>{
+    const before=el.value, at=el.selectionStart;
+    const after=fmtBizNo(before);
+    if(after!==before){
+      el.value=after;
+      // 끝에서 치고 있으면 커서를 끝에 둡니다. 가운데를 고치는 중이면 건드리지 않습니다.
+      if(at>=before.length) el.setSelectionRange(after.length, after.length);
+    }
+    paint();
+  });
+  el.addEventListener('blur',()=>{ el.value=fmtBizNo(el.value); paint() });
+  paint();
+}
+
 function renderOpts(list,box){
   box=box||'optBox';
   $(box).innerHTML=list.map((o,i)=>
@@ -4083,8 +4252,15 @@ function paperHTML(mk,p,steps){
   '<div class="sub">'+esc(p.name||'')+(p.code?' · 발주번호 '+esc(p.code):'')+'</div>'+
 
   '<table class="parties"><tbody><tr>'+
+    /* 비어 있는 칸은 아예 안 그립니다. 빈 줄이 늘어서 있으면
+       "아직 안 적었나" 인지 "원래 없나" 인지 받는 쪽이 알 수 없습니다. */
     '<td><table class="pt"><caption>공급받는자</caption><tbody>'+
-      '<tr><th>상호</th><td>'+esc(p.client||'')+'</td></tr>'+
+      '<tr><th>상호</th><td>'+esc(p.client||'')+
+        (p.ceo?' <span style="color:#666">('+esc(p.ceo)+')</span>':'')+'</td></tr>'+
+      (p.bizNo?'<tr><th>등록번호</th><td>'+esc(fmtBizNo(p.bizNo))+'</td></tr>':'')+
+      (p.bizType||p.bizItem
+        ?'<tr><th>업태 · 종목</th><td>'+esc([p.bizType,p.bizItem].filter(Boolean).join(' · '))+'</td></tr>'
+        :'')+
       '<tr><th>담당자</th><td>'+esc(p.person||'')+'</td></tr>'+
       '<tr><th>연락처</th><td>'+esc(fmtPhone(p.phone||''))+'</td></tr>'+
       '<tr><th>발행일</th><td>'+esc(issued)+'</td></tr>'+
@@ -4501,8 +4677,12 @@ $('i-xlsx').addEventListener('click',async ()=>{
     A.push([]);
     A.push(['공급자','','','공급받는자','']);
     A.push(['상호',mk.name||'','','상호',p.client||'']);
-    A.push(['등록번호',mk.bizNo||'','','담당자',p.person||'']);
-    A.push(['대표자',mk.ceo||'','','연락처',fmtPhone(p.phone||'')]);
+    A.push(['등록번호',mk.bizNo||'','','등록번호',fmtBizNo(p.bizNo||'')]);
+    A.push(['대표자',mk.ceo||'','','대표자',p.ceo||'']);
+    A.push(['업태 · 종목',[mk.bizType,mk.bizItem].filter(Boolean).join(' · '),'',
+            '업태 · 종목',[p.bizType,p.bizItem].filter(Boolean).join(' · ')]);
+    A.push(['','','','담당자',p.person||'']);
+    A.push(['','','','연락처',fmtPhone(p.phone||'')]);
     A.push(['주소',mk.addr||'','','발행일',p.doneOn||todayKey()]);
     A.push(['업태 · 종목',[mk.bizType,mk.bizItem].filter(Boolean).join(' · '),'','','']);
     A.push(['연락처',mk.tel||'','','','']);
