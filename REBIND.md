@@ -95,6 +95,7 @@ manifest.webmanifest  안드로이드 홈 화면 설치용 (make-logo.py 가 만
 | 칸 | |
 |---|---|
 | `kind` | `project` · `quote` |
+| `client_biz_no` / `client_ceo` / `client_biz_type` / `client_biz_item` | **공급받는자(고객사) 정보.** 등록번호는 **숫자 열 자리만** 담습니다 — 하이픈을 같이 담으면 같은 회사가 두 값이 됩니다. `client_email` 은 세금계산서 받을 곳 |
 | `spec_paper_cover` / `spec_paper_inner` | 표지·내지 용지 (예전 `spec_paper` 도 그대로 보여 줍니다) |
 | `options` jsonb | 사용자가 이름부터 직접 적는 항목 |
 | `arrivals` jsonb | 자재 입고 `[{n,s,on}]`. `on` 이 비면 아직 안 들어온 것 |
@@ -357,6 +358,7 @@ Vercel 을 다시 배포할 필요가 없습니다.
 | 새 회사 | `apps` 를 꼭 함께 넣으세요. 안 넣으면 아무도 못 들어갑니다 |
 | 금액 | 화면에서 가리는 것으로는 부족합니다. `project_money` 로 나눠 두었으니 그 원칙을 깨지 마세요 |
 | 플렉스 가운데정렬 | `align-items:center` 는 넘친 부분에 스크롤이 안 닿습니다. `margin:auto` 를 씁니다 |
+| 사업자등록번호 | 담을 때 `digits10()`, 보여 줄 때 `fmtBizNo()`. `bizNoOk()` 는 **오타만** 잡습니다 — 진짜 있는 사업자인지, 살아 있는지는 국세청에 물어야 압니다 |
 | `word-break:keep-all` | 혼자 두면 띄어쓰기 없는 긴 것(주소·링크)에 가로 스크롤이 생깁니다. `overflow-wrap:break-word` 를 **꼭 같이**. 낡은 `word-break:break-word` 는 keep-all 을 무너뜨리니 쓰지 마세요 |
 | 입고 줄(`.setrow.arow`) | 칸이 넷이라 390px 폰에서 이름 자리가 51px 밖에 안 남았습니다. 크롬 날짜 칸은 `2026. 08. 18.` 을 통째로 그려 **132px 밑으로 못 줄입니다** — 대신 자리가 모자라면 날짜와 ✕ 가 아랫줄로 내려가게 두었습니다 |
 
