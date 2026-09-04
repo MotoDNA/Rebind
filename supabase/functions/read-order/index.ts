@@ -19,6 +19,20 @@ const MAX_BYTES = 8 * 1024 * 1024;
 
 const admin = createClient(URL_, SERVICE, { auth: { persistSession: false } });
 
+/* 왜 실패했는지 남깁니다.
+   여태 **성공만** 기록해서, "스캔이 안 된다" 는 말을 들어도 무엇이 막혔는지
+   알 방법이 없었습니다. 사진도 읽은 내용도 안 남기고 사유만 적습니다. */
+async function 실패(company_id: string | null, actor_id: string | null,
+                    why: string, detail?: Record<string, unknown>) {
+  try {
+    await admin.from('audit_log').insert({
+      company_id, actor_id,
+      action: 'order.read.fail', target: why,
+      detail: { model: MODEL, ...(detail ?? {}) },
+    });
+  } catch { /* 기록을 못 남긴다고 사람의 일을 막지는 않습니다 */ }
+}
+
 // 작업의뢰서는 회사마다 양식이 다릅니다.
 // 칸 위치로 찾지 않고 "무슨 뜻의 칸인지"로 찾게 합니다.
 //
@@ -32,7 +46,7 @@ function buildPrompt(us: string[], trade: string): string {
   trade + '가(이) 받은 작업의뢰서(작업지시서) 사진입니다. 표를 읽어 아래 항목을 뽑아 주세요.',
   '회사마다 양식이 달라서 칸 이름이 제각각입니다. 뜻이 같으면 같은 항목으로 넣으세요.',
   '',
-  '- name : 만들 것의 이름. "제품명 · 품명 · 제목 · 건명" 중 있는 것',
+  '- name : 만들 것의 이름. "도서명 · 제품명 · 품명 · 제목 · 건명 · 작업명" 중 있는 것',
   '- client : 이 의뢰서를 발행한 회사. 곧 우리에게 일을 준 곳입니다.',
   '           찾는 법 — "발주처" 칸이 있으면 그것. 없으면 종이 맨 위나 맨 아래의',
   '           상호·로고(예: "○○컴퍼니 제작의뢰서", 오른쪽 위 로고, 맨 아래 회사 주소줄).',
@@ -40,13 +54,20 @@ function buildPrompt(us: string[], trade: string): string {
   '              발행한 회사가 어디인지 분명하면 그것을 넣습니다.',
   '              분명하지 않으면 비우고 uncertain 에 client 를 적으세요.',
   '           ※ 다음 공장 이름은 client 가 아닙니다 —',
-  '              입고처 · 출고처 · 납품업체 · 물류 · 지업사 · 제지사 · 인쇄사 · 인쇄소 · 제책사.',
+  '              입고처 · 출고처 · 납품업체 · 물류 · 지업사 · 제지사 · 인쇄사 · 인쇄소 ·',
+  '              제책사 · 스프링제책사 · 스프링제본소 · 업체정보.',
   '           ※ ' + WE + ' 는 우리 자신입니다. 절대 client 가 아닙니다.',
+  '              우리 이름은 보통 "제책사 · 스프링제책사 · 입고처 · 업체정보" 칸이나',
+  '              작업순서 줄에 적혀 있습니다. 거기 우리 이름이 보이면',
+  '              **그 종이를 발행한 회사가 client** 라는 뜻입니다.',
+  '           ※ "거래처" 와 "발주처" 가 둘 다 있으면 발주처가 client 입니다.',
+  '              "거래처" 만 있고 종이 맨 위·아래에 다른 상호나 로고가 있으면',
+  '              그 상호가 client 입니다 (거래처는 그 회사의 고객입니다).',
   '- person : 담당자 이름. 발주처(client) 쪽 담당자만.',
   '           입고처 · 물류 · 제책사 옆에 적힌 담당자는 넣지 마세요.',
   '- phone : 그 담당자의 연락처. 숫자와 하이픈만',
-  '- code : 발주번호 · 오더번호 · 관리번호',
-  '- qty : 수량. "부수 · 수량 · 매수 · EA". 숫자만 (쉼표 빼고)',
+  '- code : 발주번호 · 발주CODE · 오더번호 · 관리번호',
+  '- qty : 수량. "부수 · 제작부수 · 수량 · 매수 · EA". 숫자만 (쉼표 빼고)',
   '- unit : 단위. 부 · 권 · 매 · 세트 중 하나. 안 적혀 있으면 "부"',
   '- size : 완성 규격. "판형 · 규격 · 내지규격 · 사이즈". 예 "250*175"',
   '         ※ 인쇄용지 전지 규격(788*1090, 880*625 같은 것)은 size 가 아닙니다.',
@@ -142,12 +163,19 @@ Deno.serve(async (req) => {
     .select('id', { count: 'exact', head: true })
     .eq('actor_id', prof.id).eq('action', 'order.read').gte('at', since);
   if ((count ?? 0) >= DAILY_LIMIT) {
+    await 실패(prof.company_id, prof.id, 'daily-limit', { used: count, limit: DAILY_LIMIT });
     return json({ ok: false, error: '오늘 인식 한도를 넘었습니다. 직접 입력해 주세요.' }, 429);
   }
 
   const b64 = String(body.image ?? '');
-  if (!b64) return json({ ok: false, error: '사진이 없습니다.' }, 400);
-  if (b64.length * 0.75 > MAX_BYTES) return json({ ok: false, error: '사진이 너무 큽니다.' }, 413);
+  if (!b64) {
+    await 실패(prof.company_id, prof.id, 'no-image');
+    return json({ ok: false, error: '사진이 없습니다.' }, 400);
+  }
+  if (b64.length * 0.75 > MAX_BYTES) {
+    await 실패(prof.company_id, prof.id, 'too-big', { kb: Math.round(b64.length * 0.75 / 1024) });
+    return json({ ok: false, error: '사진이 너무 큽니다.' }, 413);
+  }
 
   let res: Response;
   try {
@@ -160,7 +188,10 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: MODEL,
-        max_tokens: 1500,
+        /* 1500 이었습니다. 칸이 많은 의뢰서(솜씨컴퍼니·이제트 양식은 참고사항이
+           길어 options 가 여럿 나옵니다)에서 답이 끊기면 JSON 이 깨져
+           "표를 읽지 못했습니다" 가 됩니다. 쓴 만큼만 값을 치르니 넉넉히 둡니다. */
+        max_tokens: 2000,
         messages: [{
           role: 'user',
           content: [
@@ -170,11 +201,14 @@ Deno.serve(async (req) => {
         }],
       }),
     });
-  } catch {
+  } catch (e) {
+    await 실패(prof.company_id, prof.id, 'network', { msg: String(e).slice(0, 120) });
     return json({ ok: false, error: '인식 서버에 닿지 못했습니다.' }, 502);
   }
   if (!res.ok) {
-    console.error('anthropic error', res.status, (await res.text()).slice(0, 300));
+    const 본문 = (await res.text()).slice(0, 300);
+    console.error('anthropic error', res.status, 본문);
+    await 실패(prof.company_id, prof.id, 'api-' + res.status, { body: 본문.slice(0, 200) });
     if (res.status === 401 || res.status === 403) {
       return json({ ok: false, error: '서버의 API 키가 올바르지 않습니다. 관리자에게 알려 주세요.' }, 502);
     }
@@ -190,6 +224,11 @@ Deno.serve(async (req) => {
   try {
     p = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1));
   } catch {
+    /* 사진은 갔고 답도 왔는데 표를 못 읽은 것입니다. 서버 탓이 아니라
+       사진이나 양식 탓일 때가 많습니다. 답의 앞머리를 조금 남겨 두면
+       "무엇을 보고 그랬는지" 를 나중에 볼 수 있습니다. */
+    await 실패(prof.company_id, prof.id, 'not-json',
+               { head: txt.slice(0, 160), stop: data.stop_reason ?? null });
     return json({ ok: false, error: '표를 읽지 못했습니다. 더 밝은 곳에서 반듯하게 다시 찍어 주세요.' }, 200);
   }
 

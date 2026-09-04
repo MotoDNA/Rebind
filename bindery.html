@@ -2381,7 +2381,9 @@ $('filePickCam').addEventListener('change',onPicked);
 /* 큰 사진을 그대로 올리면 보관함이 금방 찹니다. 긴 변 1600px 로 줄입니다. */
 const shrink = f => shrinkTo(f, 1600, .82);
 /* 작업의뢰서는 표가 촘촘해서 더 크게 남깁니다. 작게 줄이면 숫자가 뭉갭니다. */
-const shrinkDoc = f => shrinkTo(f, 2400, .88);
+/* 작업의뢰서는 표 안 글씨가 작습니다. .88 로 줄이면 획 둘레에 잡티가 생겨
+   읽는 쪽이 헷갈립니다. 사진 한 장이라 조금 무거워져도 괜찮습니다(8MB 까지 받습니다). */
+const shrinkDoc = f => shrinkTo(f, 2400, .94);
 
 function shrinkTo(file,max,quality){
   return new Promise((res,rej)=>{
