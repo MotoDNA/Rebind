@@ -498,6 +498,17 @@ nav.tabs button:active{opacity:.6}
 #gate .pick.three .thumb{width:calc((100% - 12px)/3)}
 #gate .pick.i1 .thumb{transform:translateX(100%)}
 #gate .pick.i2 .thumb{transform:translateX(200%)}
+/* ───── 넷이 됐습니다 (Re:O-S) ─────
+   390px 폰에서 한 칸이 88px 밖에 안 남습니다. 좁은 화면에서는 설명줄을
+   감춥니다 — 이름과 그림만으로도 무엇인지 압니다. 글자를 더 줄이면
+   읽을 수 없게 됩니다. */
+#gate .pick.four{grid-template-columns:repeat(4,1fr)}
+#gate .pick.four .thumb{width:calc((100% - 12px)/4)}
+#gate .pick.four .opt{padding:12px 3px 13px}
+#gate .pick.four .opt b{font-size:.85rem;margin:6px 0 0;letter-spacing:-.045em}
+#gate .pick.four .opt i{display:none}
+#gate .pick.i3 .thumb{transform:translateX(300%)}
+#gate .pick #pick-reos.on b em{color:#A78BFA}
 #gate .pick.three .opt{padding:14px 6px 15px}
 #gate .pick.three .opt b{font-size:.98rem;margin:7px 0 4px}
 #gate .pick.three .opt i{font-size:.68rem;line-height:1.5}
@@ -574,6 +585,9 @@ nav.tabs button:active{opacity:.6}
   #gate .pick.three .opt{padding:18px 10px 19px}
   #gate .pick.three .opt b{font-size:1.05rem}
   #gate .pick.three .opt i{font-size:.73rem}
+  #gate .pick.four .opt{padding:16px 8px 17px}
+  #gate .pick.four .opt b{font-size:1rem;margin:8px 0 5px}
+  #gate .pick.four .opt i{display:block;font-size:.68rem;line-height:1.5}
   #gate h1{font-size:1.5rem;margin-bottom:18px}
   #gate .foot{margin-top:18px}
   /* 오른쪽 칸이 이미 상자라 안내문은 가운데로 모읍니다 */
@@ -798,7 +812,7 @@ nav.tabs button:active{opacity:.6}
 
     <!-- 어느 서비스로 들어갈지. 누르면 고르기만 하고 넘어가지는 않습니다 —
          비밀번호를 엉뚱한 앱에 치는 일이 없어야 합니다. -->
-    <div class="pick three" id="appPick" role="tablist" aria-label="어느 서비스로 들어갈지">
+    <div class="pick four" id="appPick" role="tablist" aria-label="어느 서비스로 들어갈지">
       <span class="thumb" aria-hidden="true"></span>
       <button type="button" class="opt" id="pick-rebind" data-app="rebind" role="tab" aria-selected="true">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M5 17h13"/><path d="M9 8h5M9 11h5"/></svg>
@@ -814,6 +828,10 @@ nav.tabs button:active{opacity:.6}
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16l-1 11a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2z"/><path d="M4 8l2-4h12l2 4"/><path d="M9 12v5M15 12v5"/></svg>
         <b>Re<em>:</em>Store</b>
         <i>가맹점 발주<br>발주부터 월정산까지</i>
+      </button>
+      <button type="button" class="opt" id="pick-reos" data-app="reos" role="tab" aria-selected="false">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></svg>
+        <b>Re<em>:</em>O-S</b><i>제작 외주관리<br>기획부터 정산까지</i>
       </button>
     </div>
     <!-- 회사 홈페이지로. 로그인 화면에서 "여기가 어느 회사인가" 를 확인하거나
@@ -5173,8 +5191,9 @@ window.addEventListener('scroll',()=>{ $('appbar').classList.toggle('stuck',wind
 const APP_KEY='rebind';
 /* 우리가 만드는 서비스 셋. 차례가 곧 토글에 놓이는 차례입니다 —
    세 앱이 같은 차례를 써야 같은 자리를 눌렀을 때 같은 것이 골라집니다. */
-const APPS  = ['rebind','recall','restore'];
-const TITLE = {rebind:'프로젝트별 공정 관리', recall:'고객관리', restore:'가맹점 발주와 정산'};
+const APPS  = ['rebind','recall','restore','reos'];
+const TITLE = {rebind:'프로젝트별 공정 관리', recall:'고객관리', restore:'가맹점 발주와 정산',
+                reos:'제작 프로젝트와 외주관리'};
 /* 로그인 화면에서 서비스마다 다른 것들.
    토글이 제목만 바꾸고 예시 글자·꼬리말은 그 앱 것으로 남아 있었습니다.
    그래서 /bind 에서 Re:Store 를 고르면 제목은 "가맹점 발주와 정산" 인데
@@ -5187,6 +5206,8 @@ const GATE = {
             foot:'계정은 <b>회사 관리자</b>가 만들어 줍니다.<br>비밀번호를 잊으셨다면 관리자에게 재발급을 요청하세요.'},
   restore: {code:'예: ABCDEF', id:'예: gdhong', sub:'',
             foot:'계정은 <b>본사 관리자</b>가 만들어 줍니다.<br>가맹점 점주는 계정 없이 <b>발주 링크</b>로 들어옵니다.'},
+  reos   : {code:'예: ABCDEF', id:'예: gdhong', sub:'',
+            foot:'계정은 <b>회사 관리자</b>가 만들어 줍니다.<br>고객사와 외주업체는 계정 없이 <b>공유 링크</b>로 봅니다.'},
 };
 
 const PICK_KEY='dnalabs-app';
@@ -5205,15 +5226,16 @@ let pickApp=APP_KEY;
 
    경로는 못 박아 둡니다. 짐작으로 맞히려 들면 /bindery.html 같은 것까지
    한 지붕으로 잘못 보고, 그때부터 있지도 않은 /call 로 사람을 보냅니다. */
-const ONE_ROOF={rebind:'/bind', recall:'/call', restore:'/store'};
-const APP_KO  ={rebind:'Re:Bind', recall:'Re:Call', restore:'Re:Store'};
+const ONE_ROOF={rebind:'/bind', recall:'/call', restore:'/store', reos:'/os'};
+const APP_KO  ={rebind:'Re:Bind', recall:'Re:Call', restore:'Re:Store', reos:'Re:O-S'};
 /* 옆 앱에서 되돌려 보낼 때 "어디서 왔는지" 를 여기 담아 둡니다.
    주소에 붙이지 않는 이유: 공유 링크에까지 따라붙고, 새로고침해도 안 지워집니다.
    창을 닫으면 사라지는 자리라 한 번 보여 주고 끝나기에 알맞습니다. */
 const BOUNCE_KEY='dnalabs-bounced';
 const AWAY    ={rebind:'https://rebind.dnalabs.kr/',
                 recall:'https://recall.dnalabs.kr/',
-                restore:'https://restore.dnalabs.kr/'};
+                restore:'https://restore.dnalabs.kr/',
+                   reos:'https://dnalabs.kr/os'};
 /* ───── 고르는 화면 (dnalabs.kr/reservice) ─────
    주소가 셋으로 나뉘어 있어 "어디로 들어가라" 를 말하기가 어려웠습니다.
    외우는 주소를 하나로 두려고 만든 자리입니다.
@@ -5245,7 +5267,7 @@ function setPick(app,remember){
   if(remember!==false){ try{ localStorage.setItem(PICK_KEY,pickApp) }catch(e){} }
   const mine = !PICKER && pickApp===APP_KEY;
   const pick=$('appPick');
-  pick.classList.remove('i0','i1','i2');
+  pick.classList.remove('i0','i1','i2','i3');
   pick.classList.add('i'+APPS.indexOf(pickApp));
   for(const key of APPS){
     const b=$('pick-'+key); if(!b) continue;

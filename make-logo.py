@@ -12,12 +12,12 @@
 # 그래서 manifest 가 없으면 홈 화면에 얹어도 마크가 안 나오고
 # 크롬 기본 조각 아이콘이 붙습니다.
 #
-#   python3 ~/Desktop/Rebind/make-logo.py        어느 폴더에서 불러도 됩니다
-#   python3 ~/Desktop/Rebind/make-logo.py 512    logo.png 을 더 크게
+#   python3 ~/Desktop/05_개발프로젝트/Rebind/make-logo.py        어느 폴더에서 불러도 됩니다
+#   python3 ~/Desktop/05_개발프로젝트/Rebind/make-logo.py 512    logo.png 을 더 크게
 import sys, os
 from PIL import Image, ImageDraw
 
-HERE   = '/Users/motodna/Desktop/Rebind'
+HERE   = '/Users/motodna/Desktop/05_개발프로젝트/Rebind'
 SOURCE = os.path.join(HERE, 'logo-source.png')
 OUT    = os.path.join(HERE, 'logo.png')
 N      = int(sys.argv[1]) if len(sys.argv) > 1 else 180
@@ -108,9 +108,10 @@ print('만들었습니다:', OUT, N, 'x', N)
 import base64, io, re
 
 APPS = [
-    '/Users/motodna/Desktop/Rebind/bindery.html',              # Re:Bind
-    '/Users/motodna/Desktop/network-dna/network-dna.html',     # Re:Call
-    '/Users/motodna/Desktop/Restore/store.html',               # Re:Store
+    '/Users/motodna/Desktop/05_개발프로젝트/Rebind/bindery.html',              # Re:Bind
+    '/Users/motodna/Desktop/05_개발프로젝트/network-dna/network-dna.html',     # Re:Call
+    '/Users/motodna/Desktop/05_개발프로젝트/Restore/store.html',               # Re:Store
+    '/Users/motodna/Desktop/05_개발프로젝트/Reos/reos.html',                 # Re:O-S
 ]
 PAT = re.compile(r'rel="icon" href="data:image/png;base64,([A-Za-z0-9+/=]+)"')
 
@@ -177,7 +178,7 @@ print('만들었습니다: manifest.webmanifest')
 # 파일 이름을 favicon.png 로 바꾸지 않고 favicon.svg 안에 그림을 넣는 이유:
 # 일곱 쪽이 favicon.svg 를 가리키고 있어서, 이름을 바꾸면 그 일곱 군데를
 # 다 고쳐야 합니다. 한 군데라도 빠뜨리면 그 쪽만 아이콘이 사라집니다.
-WEB = '/Users/motodna/Desktop/network-dna/web'
+WEB = '/Users/motodna/Desktop/05_개발프로젝트/network-dna/web'
 if os.path.isdir(WEB):
     p = os.path.join(WEB, 'logo.png')
     mark(192).save(p)                    # 공유카드가 46px 로 씁니다. 192 면 넉넉합니다
