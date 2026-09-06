@@ -6,7 +6,7 @@
 이 문서는 **지금 상태**만 적습니다. "언제 무엇을 왜 그렇게 했는가"는 [진행상황.md](진행상황.md)에
 날짜순으로 있습니다. 설치는 [설치방법.md](설치방법.md).
 
-세 서비스를 함께 다루는 규칙(얽혀 있는 것 · 배포 · 말투)은 스킬
+네 서비스를 함께 다루는 규칙(얽혀 있는 것 · 배포 · 말투)은 스킬
 `~/.claude/skills/dnalabs/SKILL.md` 에 있습니다.
 
 *기준 2026-08-30*
@@ -27,24 +27,25 @@
 
 ---
 
-## 2. 형제 서비스 셋
+## 2. 형제 서비스 넷
 
-DNA Labs 가 만드는 서비스가 셋이고, **같은 Supabase 프로젝트·같은 계정 목록**을 씁니다.
+DNA Labs 가 만드는 서비스가 넷이고, **같은 Supabase 프로젝트·같은 계정 목록**을 씁니다.
 
 | 서비스 | 하는 일 | 새 주소 | 옛 주소 | 폴더 |
 |---|---|---|---|---|
 | **Re:Bind** | 프로젝트별 공정 관리 | `dnalabs.kr/bind` | `rebind.dnalabs.kr` | `~/Desktop/Rebind` |
 | **Re:Call** | 고객관리 | `dnalabs.kr/call` | `recall.dnalabs.kr` | `~/Desktop/network-dna` |
 | **Re:Store** | 가맹점 발주·정산 | `dnalabs.kr/store` | `restore.dnalabs.kr` | `~/Desktop/Restore` |
+| **Re:O-S** | 제작 외주관리 | `dnalabs.kr/os` | — | `~/Desktop/05_개발프로젝트/Reos` |
 | 회사 홈페이지 | | `dnalabs.kr` (Vercel) | | `~/Desktop/network-dna/web` |
 
 **한 지붕 아래(`dnalabs.kr/*`)에서는 로그인을 나눠 씁니다.** 주소가 하나라
 브라우저가 로그인 흔적을 함께 보기 때문입니다. 옛 주소끼리는 주소가 달라 못 나눕니다.
 
-⚠ **셋이 얽혀 있는 것 셋** — 하나만 보고 고치면 다른 쪽이 멈춥니다.
+⚠ **넷이 얽혀 있는 것 셋** — 하나만 보고 고치면 다른 쪽이 멈춥니다.
 1. `ALLOWED_ORIGIN` (아래 6장)
 2. `companies.apps` (아래 5장)
-3. 로그인 화면의 서비스 토글 — 세 앱이 같은 차례·같은 문구를 씁니다
+3. 로그인 화면의 서비스 토글 — **네 앱**이 같은 차례·같은 문구를 씁니다
 
 ---
 
@@ -60,7 +61,7 @@ supabase/functions/
   share-view/         고객사 공개 링크를 읽어 줍니다 (--no-verify-jwt)
   read-order/         작업의뢰서 사진을 읽어 칸을 채웁니다
   _shared/cors.ts     두 함수가 함께 쓰는 CORS. Re:Call 쪽에도 같은 파일이 있습니다
-make-logo.py          DNA Labs 마크를 세 앱과 홈페이지에 박아 넣습니다
+make-logo.py          DNA Labs 마크를 네 앱과 홈페이지에 박아 넣습니다
 logo-source.png       마크 원본 (이 그림을 잘라서 씁니다)
 dnalabs-vercel/       dnalabs.kr 에 올릴 설정 (vercel.json · bind.webmanifest)
 manifest.webmanifest  안드로이드 홈 화면 설치용 (make-logo.py 가 만듭니다)
@@ -145,7 +146,7 @@ apps text[]   {rebind} · {recall} · {restore} · 여러 개 가능
 안 판 것까지 열리는 것보다 막히는 쪽이 낫습니다 — 막히면 바로 알아채지만
 열려 있는 것은 아무도 모릅니다.
 
-지금: `ACTIVA {rebind,recall}` · `BKT {rebind}` · `9DORO {restore}`
+지금: `ACTIVA {rebind,recall,reos}` · `BKT {rebind}` · `9DORO {restore}` · `DNALABS {}`
 
 **화면이 아니라 데이터베이스가 막습니다.** 정책이 스무 개라 조건을 하나씩 늘려 쓰면
 한 군데만 빠뜨려도 그 표가 열립니다. 함수 하나로 감쌌습니다.
@@ -209,8 +210,11 @@ supabase secrets set ALLOWED_ORIGIN="https://rebind.dnalabs.kr,https://recall.dn
   --project-ref izrtclsqhsgkuwsffifn
 ```
 
-바꾼 뒤 **함수 넷을 모두 다시 배포**해야 반영됩니다 —
-`share-view` `read-order` (Re:Bind) · `read-card` `admin-user` (Re:Call, `~/Desktop/network-dna`).
+바꾼 뒤 **함수 아홉을 모두 다시 배포**해야 반영됩니다 —
+`share-view` `read-order`(Re:Bind) · `read-card` `admin-user` `signup` `subscription`(Re:Call) ·
+`store-gate`(Re:Store) · `reos-gate`(Re:O-S) · `ops`(운영).
+
+**Re:O-S 는 이 값을 늘리지 않아도 됩니다** — `dnalabs.kr` 하나에서만 돌기 때문입니다.
 
 **넣고 끝내지 말고 되읽어 확인하세요.**
 
@@ -258,31 +262,34 @@ company_settings.preset   이 회사가 실제로 쓰는 말 (jsonb)
 
 ## 8. 로그인 화면
 
-세 서비스 토글이 있습니다. 세 앱이 **같은 차례·같은 문구**를 씁니다 —
+**네 서비스** 토글이 있습니다. 네 앱이 **같은 차례·같은 문구**를 씁니다 —
 같은 자리를 눌렀는데 다른 것이 골라지면 안 됩니다.
 
 ```js
-const APPS     = ['rebind','recall','restore'];        // 차례가 곧 토글의 차례
-const ONE_ROOF = {rebind:'/bind', recall:'/call', restore:'/store'};
+const APPS     = ['rebind','recall','restore','reos']; // 차례가 곧 토글의 차례
+const ONE_ROOF = {rebind:'/bind', recall:'/call', restore:'/store', reos:'/os'};
 const AWAY     = {rebind:'https://rebind.dnalabs.kr/', ...};
 const underOneRoof = ONE_ROOF[APP_KEY] === location.pathname.replace(/\/+$/,'');
 ```
 
-서비스가 늘면 **세 파일에서 이 표에 한 줄씩** 더하면 됩니다.
+서비스가 늘면 **네 파일에서 이 표에 한 줄씩** 더하면 됩니다.
+
+토글이 넷이 되면서 390px 폰에서는 한 칸이 78px 밖에 안 남습니다.
+좁은 화면에서는 설명줄을 감추고 이름과 그림만 둡니다(`.pick.four`).
 
 | 어디서 열렸나 | 다른 것을 고르면 |
 |---|---|
 | `dnalabs.kr/bind` | **로그인 칸이 그대로.** 여기서 로그인하고 그쪽으로 넘어갑니다 |
 | `rebind.dnalabs.kr` | 칸을 감추고 이동 단추만. 흔적을 못 넘기니 **엉뚱한 앱에 비밀번호를 치면 안 됩니다** |
 
-- 고른 것은 기기에 남습니다(`localStorage['dnalabs-app']`). 한 지붕이면 세 앱이 함께 봅니다
+- 고른 것은 기기에 남습니다(`localStorage['dnalabs-app']`). 한 지붕이면 네 앱이 함께 봅니다
 - 안 산 것을 고르고 로그인하면 → 토글을 되돌리고 "○○ 를 쓰는 회사가 아닙니다"
 - 산 것이 옆에 있으면 → 내쫓지 않고 그리로 보내고, `sessionStorage` 로 이유를 넘겨 알려 줍니다
 - PC(가로 900 · 세로 600 이상)는 두 칸으로 펼칩니다. 왼쪽 마크+토글, 오른쪽 로그인 칸
 
-**로그인 정보는 세 서비스가 똑같습니다** — 회사 코드·아이디·비밀번호 한 벌.
+**로그인 정보는 네 서비스가 똑같습니다** — 회사 코드·아이디·비밀번호 한 벌.
 `아이디@회사코드.ndna.invalid` 로 만든 이메일로 Supabase 에 로그인합니다.
-로그인 보관 자리도 셋 다 `ndna-auth` 로 같습니다.
+로그인 보관 자리도 넷 다 `ndna-auth` 로 같습니다.
 
 칸의 예시 글자도 셋이 같습니다 — `예: ABCDEF` / `예: gdhong`.
 한동안 Re:Store 만 `예: GUDORO / 예: admin` 을 썼습니다. 회사 코드 하나를
@@ -337,7 +344,7 @@ GitHub Pages 는 1~2분 걸리고, **브라우저가 옛 파일을 한동안 보
 | 서버 함수 | `supabase functions deploy …` (위 6장) |
 | SQL | `supabase db query --linked -f sql/00NN_….sql` |
 | 홈페이지 · rewrite | `cd ~/Desktop/network-dna && npx vercel --prod --scope chhanj40-5991s-projects` |
-| 로고 | `python3 ~/Desktop/Rebind/make-logo.py` → 세 앱과 홈페이지 파비콘까지. **저장소 셋을 각각 커밋** |
+| 로고 | `python3 ~/Desktop/05_개발프로젝트/Rebind/make-logo.py` → **네 앱**과 홈페이지 파비콘까지. **저장소 넷을 각각 커밋**<br>⚠ 경로가 옛 자리를 가리켜 한동안 돌지 않았습니다. 2026-09-06 에 맞췄습니다 |
 
 `--scope` 를 빼면 `Not authorized` 가 납니다 — `.vercel/project.json` 의 `orgId` 와
 로그인 계정의 팀 이름이 달라서입니다.
